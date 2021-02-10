@@ -1,0 +1,553 @@
+#:kivy 2.0.0
+<OmniGui>:
+    id: screenManager
+    MainGUI:
+        id: Main_GUI
+    PatchPage1:
+        id: PatchPage_1
+    PatchPage2:
+        id: PatchPage_2
+    PatchPage3:
+        id: PatchPage_3
+    PatchPage4:
+        id: PatchPage_4
+    LedPage1:
+        id: LedPage_1
+    LedPage2:
+        id: LedPage_2
+    LedPage3:
+        id: LedPage_3
+    LedPage4:
+        id: LedPage_4
+
+
+<MainGUI>:
+    name: 'MainGUI'
+    AnchorLayout:
+        anchor_x: 'left'
+        anchor_y: 'top'
+        
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: 2
+            padding: [1,1,1,1]
+            size_hint: 0.5, 0.4
+            Button:
+                id: Patch_selection
+                text: 'Synth Patch Selection'
+                size_hint: 1, 0.25
+                on_release: root.screenSel('PatchPage1')
+            Button:
+                id: Pattern_selection
+                text: 'LED Pattern Selection'
+                size_hint: 1, 0.25
+                on_release: root.screenSel('LedPage1')
+    AnchorLayout:
+        anchor_x: 'right'
+        anchor_y: 'top'
+        Button:
+            text: '¯\_(*o*)_/¯'
+            size_hint: 0.5, 0.4
+    AnchorLayout:
+        anchor_x: 'center'
+        anchor_y: 'bottom'
+        Button:
+            text: 'Close Application\n    (Temporary)'
+            size_hint: 1, 0.6
+            on_release: exit()
+
+
+<PatchPage1>:
+    name: 'PatchPage1'
+    Label:
+        text: 'Patch Selection\n       Page 1'
+        size_hint: 1, 0.13
+        pos_hint: {'x':0, 'y':0.87}
+    GridLayout:
+        size_hint: 0.8, 0.87
+        pos_hint: {'x':0.1, 'y':0}
+        rows: 3
+        cols: 4
+        spacing: 2, 2
+        padding: [0,0,0,30]
+
+        Button: 
+            id: tone_1
+            text: 'tone1'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_2
+            text: 'tone2'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_3
+            text: 'tone3'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_4
+            text: 'tone4'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_5
+            text: 'tone5'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_6
+            text: 'tone6'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_7
+            text: 'tone7'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_8
+            text: 'tone8'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_9
+            text: 'tone9'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_10
+            text: 'tone10'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_11
+            text: 'tone11'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_12
+            text: 'tone12'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+    Button:
+        text: '>'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.91, 'y':0.15}
+        on_release: root.screenSel('PatchPage2')
+    Button:
+        text: 'Back'
+        size_hint: 0.08, 0.08
+        pos_hint: {'x':0.01, 'top':0.97}
+        on_release: root.screenSel('MainGUI')
+
+<PatchPage2>:
+    name: 'PatchPage2'
+    Label:
+        text: 'Patch Selection\n       Page 1'
+        size_hint: 1, 0.13
+        pos_hint: {'x':0, 'y':0.87}
+    GridLayout:
+        size_hint: 0.8, 0.87
+        pos_hint: {'x':0.1, 'y':0}
+        rows: 3
+        cols: 4
+        spacing: 2, 2
+        padding: [0,0,0,30]
+
+        Button: 
+            id: tone_13
+            text: 'tone13'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_14
+            text: 'tone14'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_15
+            text: 'tone15'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_16
+            text: 'tone16'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_17
+            text: 'tone17'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_18
+            text: 'tone18'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_19
+            text: 'tone19'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_20
+            text: 'tone20'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_21
+            text: 'tone21'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_22
+            text: 'tone22'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_23
+            text: 'tone23'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_24
+            text: 'tone24'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+    Button:
+        text: '>'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.91, 'y':0.15}
+        on_release: root.screenSel('PatchPage3')
+    Button:
+        text: '<'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.01, 'y':0.15}
+        on_release: root.screenSel('PatchPage1')
+    Button:
+        text: 'Back'
+        size_hint: 0.08, 0.08
+        pos_hint: {'x':0.01, 'top':0.97}
+        on_release: root.screenSel('MainGUI')
+<PatchPage3>:
+    name: 'PatchPage3'
+    Label:
+        text: 'Patch Selection\n       Page 1'
+        size_hint: 1, 0.13
+        pos_hint: {'x':0, 'y':0.87}
+    GridLayout:
+        size_hint: 0.8, 0.87
+        pos_hint: {'x':0.1, 'y':0}
+        rows: 3
+        cols: 4
+        spacing: 2, 2
+        padding: [0,0,0,30]
+
+        Button: 
+            id: tone_25
+            text: 'tone25'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_26
+            text: 'tone26'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_27
+            text: 'tone27'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_28
+            text: 'tone28'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_29
+            text: 'tone29'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_30
+            text: 'tone30'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_31
+            text: 'tone31'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_32
+            text: 'tone32'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_33
+            text: 'tone33'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_34
+            text: 'tone34'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_35
+            text: 'tone35'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_36
+            text: 'tone36'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+    Button:
+        text: '>'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.91, 'y':0.15}
+        on_release: root.screenSel('PatchPage4')
+    Button:
+        text: '<'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.01, 'y':0.15}
+        on_release: root.screenSel('PatchPage2')
+    Button:
+        text: 'Back'
+        size_hint: 0.08, 0.08
+        pos_hint: {'x':0.01, 'top':0.97}
+        on_release: root.screenSel('MainGUI')
+
+<PatchPage4>
+    name: 'PatchPage4'
+    Label:
+        text: 'Patch Selection\n       Page 1'
+        size_hint: 1, 0.13
+        pos_hint: {'x':0, 'y':0.87}
+    GridLayout:
+        size_hint: 0.8, 0.87
+        pos_hint: {'x':0.1, 'y':0}
+        rows: 3
+        cols: 4
+        spacing: 2, 2
+        padding: [0,0,0,30]
+
+        Button: 
+            id: tone_37
+            text: 'tone37'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_38
+            text: 'tone38'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_39
+            text: 'tone39'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_40
+            text: 'tone40'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_41
+            text: 'tone41'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_42
+            text: 'tone42'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_43
+            text: 'tone43'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_44
+            text: 'tone44'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_45
+            text: 'tone45'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_46
+            text: 'tone46'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button: 
+            id: tone_47
+            text: 'tone47'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+        Button:
+            id: tone_48
+            text: 'tone48'
+            size_hint: 1, 0.25
+            on_release: root.toneSel(self.text)
+    Button:
+        text: '<'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.01, 'y':0.15}
+        on_release: root.screenSel('PatchPage3')
+    Button:
+        text: 'Back'
+        size_hint: 0.08, 0.08
+        pos_hint: {'x':0.01, 'top':0.97}
+        on_release: root.screenSel('MainGUI')
+
+<LedPage1>
+    name: 'LedPage1'
+    Label:
+        text: 'Pattern Selection\n        Page 1'
+        size_hint: 1, 0.13
+        pos_hint: {'x':0, 'y':0.87}
+    GridLayout:
+        size_hint: 0.8, 0.87
+        pos_hint: {'x':0.1, 'y':0}
+        rows: 3
+        cols: 4
+        spacing: 2, 2
+        padding: [0,0,0,30]
+        Button:
+            id: pattern_1
+            text: 'Pattern1'
+            #on_release: 
+        Button:
+            id: pattern_2
+            text: 'Pattern2'
+            #on_release: 
+        Button:
+            id: pattern_3
+            text: 'Pattern3'
+            #on_release: 
+        Button:
+            id: pattern_4
+            text: 'Pattern4'
+            #on_release: 
+        Button:
+            id: pattern_5
+            text: 'Pattern5'
+            #on_release: 
+        Button:
+            id: pattern_6
+            text: 'Pattern6'
+            #on_release: 
+        Button:
+            id: pattern_7
+            text: 'Pattern7'
+            #on_release: 
+        Button:
+            id: pattern_8
+            text: 'Pattern8'
+            #on_release: 
+        Button:
+            id: pattern_9
+            text: 'Pattern9'
+            #on_release: 
+        Button:
+            id: pattern_10
+            text: 'Pattern10'
+            #on_release: 
+        Button:
+            id: pattern_11
+            text: 'Pattern11'
+            #on_release: 
+        Button:
+            id: pattern_12
+            text: 'Pattern12'
+            #on_release: 
+    Button:
+        text: '>'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.91, 'y':0.15}
+        on_release: root.screenSel('LedPage2')
+    Button:
+        text: 'Back'
+        size_hint: 0.08, 0.08
+        pos_hint: {'x':0.01, 'top':0.97}
+        on_release: root.screenSel('MainGUI')
+
+<LedPage2>
+    name: 'LedPage2'
+    Label:
+        text: 'Pattern Selection\n        Page 2'
+        size_hint: 1, 0.13
+        pos_hint: {'x':0, 'y':0.87}
+    GridLayout:
+        size_hint: 0.8, 0.87
+        pos_hint: {'x':0.1, 'y':0}
+        rows: 3
+        cols: 4
+        spacing: 2, 2
+        padding: [0,0,0,30]
+        Button:
+            id: pattern_13
+            text: 'Pattern13'
+            #on_release: 
+        Button:
+            id: pattern_14
+            text: 'Pattern14'
+            #on_release: 
+        Button:
+            id: pattern_15
+            text: 'Pattern15'
+            #on_release: 
+        Button:
+            id: pattern_16
+            text: 'Pattern16'
+            #on_release: 
+        Button:
+            id: pattern_17
+            text: 'Pattern17'
+            #on_release: 
+        Button:
+            id: pattern_18
+            text: 'Pattern18'
+            #on_release: 
+        Button:
+            id: pattern_19
+            text: 'Pattern19'
+            #on_release: 
+        Button:
+            id: pattern_20
+            text: 'Pattern20'
+            #on_release: 
+        Button:
+            id: pattern_21
+            text: 'Pattern21'
+            #on_release: 
+        Button:
+            id: pattern_22
+            text: 'Pattern22'
+            #on_release: 
+        Button:
+            id: pattern_23
+            text: 'Pattern23'
+            #on_release: 
+        Button:
+            id: pattern_24
+            text: 'Pattern24'
+            #on_release: 
+    Button:
+        text: '<'
+        size_hint: 0.08, 0.7
+        pos_hint: {'x':0.01, 'y':0.15}
+        on_release: root.screenSel('LedPage1')
+    Button:
+        text: 'Back'
+        size_hint: 0.08, 0.08
+        pos_hint: {'x':0.01, 'top':0.97}
+        on_release: root.screenSel('MainGUI')
+
+

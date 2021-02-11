@@ -19,10 +19,13 @@
         id: LedPage_3
     LedPage4:
         id: LedPage_4
+    WaveFormPage:
+        id: Wave_Form_Page
 
 
 <MainGUI>:
     name: 'MainGUI'
+    size_hint: 1,1
     AnchorLayout:
         anchor_x: 'left'
         anchor_y: 'top'
@@ -42,12 +45,23 @@
                 text: 'LED Pattern Selection'
                 size_hint: 1, 0.25
                 on_release: root.screenSel('LedPage1')
+            Button:
+                id: SettingsBtn
+                text: 'Settings'
+                size_hint: 1, 0.25
     AnchorLayout:
         anchor_x: 'right'
         anchor_y: 'top'
+        WaveForm:
+            size_hint: 0.499, 0.395
+    AnchorLayout:
+        id: WavePanel
+        anchor_x: 'right'
+        anchor_y: 'top'
         Button:
-            text: '¯\_(*o*)_/¯'
-            size_hint: 0.5, 0.4
+            size_hint: 0.499, 0.395
+            opacity: 0
+            on_press: root.screenSel('WaveFormPage')
     AnchorLayout:
         anchor_x: 'center'
         anchor_y: 'bottom'
@@ -550,4 +564,18 @@
         pos_hint: {'x':0.01, 'top':0.97}
         on_release: root.screenSel('MainGUI')
 
+<WaveFormPage>
+    name: 'WaveFormPage'
+    BoxLayout:
+        orientation: 'horizontal'
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint: 0.1, 1
+            Button:
+                text: 'Back'
+                size_hint: 0.9, 0.1
+                on_release: root.screenSel('MainGUI')
+            
+        WaveForm:
+            size_hint: 0.9, 1
 

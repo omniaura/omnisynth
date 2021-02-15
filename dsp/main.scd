@@ -105,4 +105,11 @@ MIDIdef.bend(\bendDef, {
 	~notes.do{arg synth; synth.set(\bend, val.linlin(0,16383, -2, 2))};
 }, chan:0);
 
+MIDIdef.cc(\controlDef, {
+	arg val, src, chan;
+	[val, src, chan].postln;
+	n.sendMsg("/control",val, src, chan);
+
+});
+
 ) // end main

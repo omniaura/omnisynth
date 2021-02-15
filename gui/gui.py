@@ -17,13 +17,13 @@ from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.screenmanager import NoTransition
-
 from kivy.uix.screenmanager import ScreenManager, Screen
-
 
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 import matplotlib.pyplot as plt
 
+# used for triggering events
+from kivy.clock import Clock
 
 from main import Omni
 
@@ -95,4 +95,4 @@ class OmniApp(App):
 if __name__ == "__main__":
     OmniSynth = Omni()
     OmniApp().run()
-    
+    event = Clock.schedule_interval(OmniSynth.open_stream, 1/30)

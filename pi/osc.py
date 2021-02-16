@@ -39,7 +39,7 @@ class OmniCollider:
     async def loop(self):
         # roughly 5ms delay
         for x in range(5):
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.001)
 
     async def init_main(self):
         rx = argparse.ArgumentParser()

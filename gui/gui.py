@@ -26,11 +26,11 @@ import matplotlib.pyplot as plt
 from kivy.clock import Clock
 
 from main import Omni
-
+OmniSynth = Omni()
 
 from kivy.core.window import Window
-Window.fullscreen = 'auto'
-Window.show_cursor = False
+# Window.fullscreen = 'auto'
+# Window.show_cursor = False
 
 #Creating very simple plot
 plt.plot([1, 23, 2, 4])
@@ -47,7 +47,8 @@ class MyScreens(Screen):
         OmniSynth.synth_sel(tone)
 
 class MainGUI(MyScreens):
-    pass
+    OmniSynth.midi_learn_on = True
+    event = Clock.schedule_interval(OmniSynth.open_stream, .001)
 
 #extending FigureCanvasKivyAgg
 class WaveForm(FigureCanvasKivyAgg):
@@ -93,6 +94,5 @@ class OmniApp(App):
     
 
 if __name__ == "__main__":
-    OmniSynth = Omni()
     OmniApp().run()
-    event = Clock.schedule_interval(OmniSynth.open_stream, 1/30)
+    

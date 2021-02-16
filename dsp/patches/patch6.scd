@@ -6,17 +6,18 @@ date: 2/16/21
 /*
 Synth function.
 */
-SynthDef.new(\tone6, {
 
-~number_of_user_sine_oscillators=2;
-~user_frequency_shift=[0,10];
-	arg freq=440, amp=0.6, gate=0, bend=0;
+
+SynthDef.new(\tone6, {
+	arg freq=440, amp=0.6, gate=0, bend=0,
+		num_use_sine_osc=2, usr_freq_shift = [0,10];
 	var final_signal, sig1, sig2, env;
-	var user_sin_oscillator=Array.new(maxSize: number_of_user_sine_oscillators);
+		//user_sin_oscillator=Array.new(maxSize: num_use_sine_osc);
 	/* generate the user designed sinewave generators*/
-	for (1, number_of_user_sine_oscillators, {
+	for (1, num_use_sine_osc, {
 		arg i;
-		user_sin_oscillator(i)=SinOsc.ar(freq+user_frequency_shift, phase: 0.0, mul: 1.0, add: 0.0);
+		//user_sin_oscillator(i)=SinOsc.ar(freq+usr_freq_shift, phase: 0.0, mul: 1.0, add: 0.0);
+		final_signal = final_signal + SinOsc.ar(freq+usr_freq_shift, phase: 0.0, mul: 1.0, add: 0.0);
 		i.postln;
 	});
 

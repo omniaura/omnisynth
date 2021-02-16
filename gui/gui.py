@@ -29,8 +29,8 @@ from main import Omni
 OmniSynth = Omni()
 
 from kivy.core.window import Window
-# Window.fullscreen = 'auto'
-# Window.show_cursor = False
+Window.fullscreen = 'auto'
+Window.show_cursor = False
 
 #Creating very simple plot
 plt.plot([1, 23, 2, 4])

@@ -32,7 +32,7 @@ class Omni():
 
 
     # opens UDP stream for MIDI control messages
-    def open_stream(self):
+    def open_stream(self, *args):
         self.sc.receive("/control")
         self.evnt = self.sc.midi_evnt
         if self.midi_learn_on:

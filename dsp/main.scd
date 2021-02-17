@@ -42,6 +42,7 @@ o = OSCFunc( {
 
 		{msg[1] == "synthSel".asSymbol} {
 			~synth = msg[2].asString;
+			~notes = Array.newClear(128);
 	        ~synth.postln;
 		}
 
@@ -60,7 +61,7 @@ o = OSCFunc( {
 
 		{true} {~synth = "tone1"};
 
-	~notes = Array.newClear(128);
+	
 
 }, '/omni');
 
@@ -71,7 +72,7 @@ Note on function.
 MIDIdef.noteOn(\noteOnDef, {
 	arg vel, nn, chan, src;
 	[vel, nn].postln;
-	n.sendMsg("/noteOn", nn);
+	//n.sendMsg("/noteOn", nn);
 	~notes[nn] = Synth.new(
 		~synth,
 		[

@@ -109,9 +109,9 @@ if __name__ == "__main__":
 
     # uncomment below to test midi_learn for knobs.
 
-    # OmniSynth.midi_learn_on = True # turn on midi learn.
-    # while (True):
-    #     OmniSynth.open_stream()
+    OmniSynth.midi_learn_on = True # turn on midi learn.
+    while (True):
+        OmniSynth.open_stream()
 
     #     # After midi_learn is complete, the GUI runs:
     #     # for example:

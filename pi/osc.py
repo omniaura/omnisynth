@@ -5,6 +5,10 @@ author: Omar Barazanji
 date: 1/17/2021
 
 Python 3.7.x
+
+sources:
+1) https://python-osc.readthedocs.io/en/latest/
+2) https://docs.python.org/3.7/library/asyncio.html
 '''
 
 # used for receiving via OSC

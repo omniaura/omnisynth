@@ -8,6 +8,9 @@ s.boot;
 
 ~bend = 8193;
 ~notes = Array.newClear(128);
+~notes_on = Array.newClear(32);
+~notes_on_count = 0;
+~notes_on_ndx = Array.newClear(128);
 
 // Default patch
 ~synth = "tone1";
@@ -34,7 +37,7 @@ o = OSCFunc( {
 
 	// arguments to OSCFunc
 	| msg, time, addr, recvPort |
-
+	var temp;
 	// post all messages to terminal window
 	[msg, time, addr, recvPort].postln;
 
@@ -52,6 +55,14 @@ o = OSCFunc( {
 			};
 			if (msg[2] == "hpf".asSymbol) {
 				~hpf_cutoff = msg[3].asFloat;
+			};
+			if (~notes_on_count > 0) {
+				for (0,~notes_on_count, {
+					arg i;
+					temp = ~notes_on[i];
+					~notes[temp].set(\lpf_cutoff, ~lpf_cutoff);
+					~notes[temp].set(\hpf_cutoff, ~hpf_cutoff);
+				});
 			};
 		}
 
@@ -73,6 +84,9 @@ MIDIdef.noteOn(\noteOnDef, {
 	arg vel, nn, chan, src;
 	[vel, nn].postln;
 	//n.sendMsg("/noteOn", nn);
+	~notes_on.add(nn);
+	~notes_on_ndx[nn] = ~notes_on_count;
+	~notes_on_count = ~notes_on_count + 1;
 	~notes[nn] = Synth.new(
 		~synth,
 		[
@@ -92,6 +106,9 @@ Note off function.
 MIDIdef.noteOff(\noteOffDef, {
 	arg vel, nn;
 	[vel, nn].postln;
+	~notes_on_count = ~notes_on_count - 1;
+	~notes_on.removeAt(~notes_on_ndx[nn]);
+	~notes_on_ndx[nn] = nil;
 	~notes[nn].set(\gate, 0);
 	~notes[nn] = nil;
 });
@@ -110,7 +127,6 @@ MIDIdef.cc(\controlDef, {
 	arg val, src, chan;
 	[val, src, chan].postln;
 	n.sendMsg("/control",val, src, chan);
-
 });
 
 ) // end main

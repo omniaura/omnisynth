@@ -19,7 +19,6 @@ void setup() {
   //leds.begin();
   //leds.show();
 
-
   Serial.println("Starting Execution...");
 }
 
@@ -29,5 +28,4 @@ void loop() {
     //colorWipe(RED, microsec);
     //colorWipe(GREEN, microsec);
     thisMidiDevice.read();
-    
 }

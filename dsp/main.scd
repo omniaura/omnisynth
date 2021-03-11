@@ -6,6 +6,8 @@ date: 1/16/21
 // Config and global variables
 s.boot;
 
+Server.default.options.device = "ASIO : ASIO4ALL v2";
+
 ~bend = 8193;
 ~notes = Array.newClear(128);
 ~notes_on = Array.newClear(32);
@@ -72,7 +74,7 @@ o = OSCFunc( {
 
 		{true} {~synth = "tone1"};
 
-	
+
 
 }, '/omni');
 

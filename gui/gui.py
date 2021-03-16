@@ -65,12 +65,22 @@ class ToneButton(Button):
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
             OmniSynth.synth_sel(self.text)
+            self.background_color = [0, 85, 255, 1]
             if touch.is_double_tap:
                 sm.current = 'KnobValPage'
+    def on_touch_up(self, touch):
+        if self.collide_point(*touch.pos):
+            self.background_color = [1, 1, 1, 1]
+
 
 # Extending the Button class for LED Buttons
 class LedButton(Button):
-    pass
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self.background_color = [0, 85, 255, 1]
+    def on_touch_up(self, touch):
+        if self.collide_point(*touch.pos):
+            self.background_color = [1, 1, 1, 1]
 
 # Defining all the screens for ScreenManager
 class MainGUI(MyScreens):
@@ -93,6 +103,8 @@ class LedPage4(MyScreens):
     pass
 class WaveFormPage(MyScreens):
     pass
+class MidiLearnPage(MyScreens):
+    pass
 
 # Extending Image class to associate each knob with a function name
 # And allow midi learn to fully work
@@ -100,19 +112,31 @@ class KnobImage(Image):
     def __init__(self, name, **kwargs):
         self.knob_name = name
         super(KnobImage, self).__init__(**kwargs)
+        with self.canvas:
+            self.opacity = 0.5
+    def on_touch_down(self, touch):
+        if OmniSynth.midi_learn_on:
+            if len(OmniSynth.knob_table) != 0:
+                if self.collide_point(*touch.pos):
+                    self.opacity = 1
 
 class IndicatorImage(Image):
     def __init__(self, name, **kwargs):
         self.knob_name = name
         super(IndicatorImage, self).__init__(**kwargs)
+        with self.canvas:
+            self.opacity = 0.5
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
             if OmniSynth.midi_learn_on:
                 if len(OmniSynth.knob_table) != 0:
-                    src = OmniSynth.event[2]
-                    chan = OmniSynth.event[3]
+                    with self.canvas:
+                        self.opacity = 1
+                    src = OmniSynth.evnt[2]
+                    chan = OmniSynth.evnt[3]
                     knobCoords[self.knob_name] = (src, chan)
                     OmniSynth.map_knob((src,chan), self.knob_name)
+
 
 
 class KnobValPage(MyScreens):

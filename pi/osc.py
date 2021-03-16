@@ -33,8 +33,6 @@ class OmniCollider:
     def __init__(self):
         self.midi_evnt = []
 
-        self.last_two = []
-
     def rx_handler(self, *args):
         event = []
         for x in args:
@@ -58,21 +56,6 @@ class OmniCollider:
         await self.loop()
         transport.close()
 
-    def add_to_last_two(self, message):
-        if len(self.last_two) < 2:
-            self.last_two.append(message)
-        else:
-            temp = self.last_two[1]
-            self.last_two = []
-            self.last_two.append(temp)
-            self.last_two.append(message)
-
-    def is_duplicate(self):
-        if len(self.last_two) == 2:
-            if self.last_two[0] == self.last_two[1]:
-                return True
-        return False
-
     def receive(self, sc_variable):
         self.d = dispatcher.Dispatcher()
         self.d.map(sc_variable, self.rx_handler)
@@ -94,9 +77,7 @@ class OmniCollider:
             for x in args:
                 control_block.append(x)
             message = (command, control_block)
-            self.add_to_last_two(message)
-            if not self.is_duplicate():
-                client.send_message(command, control_block)
+            client.send_message(command, control_block)
 
 if __name__ == "__main__":
     sc = OmniCollider()

@@ -12,7 +12,7 @@ SynthDef.new("tone7", {
 
 	arg freq=440, lpf_cutoff=20000, hpf_cutoff=20,
 		amp=0.6, gate=0, bend=0, out=0,
-        mod_freq=100, mod_amp=200;
+        mod_freq=1000, mod_amp=500;
 
 	var sig, mod_sig, raw_sig, filter_sig, env,
         carrier, mod;

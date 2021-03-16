@@ -35,6 +35,10 @@ class Omni():
         #     organization: self.knob_map[knob_addr] = filter_name.
         self.knob_map = dict()
 
+
+        self.knob_map_hist = dict()
+
+
         # Table that will be outputted to DAC & Mux
         self.cv_table = [[0 for x in range(8)] for y in range(4)] 
 
@@ -45,6 +49,7 @@ class Omni():
 
     # opens UDP stream for MIDI control messages.
     def open_stream(self, *args):
+        temp = self.knob_table
         self.sc.receive("/control")
         self.evnt = self.sc.midi_evnt
         if self.midi_learn_on:
@@ -85,7 +90,13 @@ class Omni():
     def filter_sel(self, filter_name, value):
         command = "/omni"
         control = "filterSel"
-        self.sc.transmit(command, control, filter_name, value)
+        if filter_name in self.knob_map_hist and self.knob_map_hist[filter_name] != value:
+            self.sc.transmit(command, control, filter_name, value)
+            self.knob_map_hist[filter_name] = value
+        elif filter_name not in self.knob_map_hist:
+            print("added", filter_name)
+            self.sc.transmit(command, control, filter_name, value)
+            self.knob_map_hist[filter_name] = value
 
     # creates dict for all control knobs on MIDI controller.
     def midi_learn(self, midi_msg):

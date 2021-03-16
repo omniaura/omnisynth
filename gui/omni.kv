@@ -23,7 +23,8 @@
         id: Wave_Form_Page
     KnobValPage:
         id: Knob_Val_Page
-
+    MidiLearnPage:
+        id: MIDI_Learn_Page
 
 <MainGUI>:
     name: 'MainGUI'
@@ -513,7 +514,8 @@
 <KnobValPage>
     name: 'KnobValPage'
     Label:
-        text: 'Knob Value Page!'
+        text: 'Knob Value Page'
+        pos_hint: {'x': 0.5 , 'y': 0.9}
     Button:
         text: 'Back'
         size_hint_x: 0.1
@@ -521,9 +523,24 @@
         pos_hint: {'x': 0.025, 'y': 0.05}
         on_release: root.screenSel('MainGUI')
     Button:
-        text: 'MIDI Learn'
+        text: 'Quick Map'
         size_hint_x: 0.1
         size_hint_y: 0.1
-        pos_hint: {'x': 0.9, 'y':0.9}
+        pos_hint: {'x': 0.9, 'y':0}
         on_release: root.learnMidi()
-        
+    Button:
+        text: 'MIDI Learn'
+        size_hint_x: 0.15
+        size_hint_y: 0.15
+        pos_hint: {'x': 0.85, 'y': 0.85}
+        on_release: root.screenSel('MidiLearnPage')
+
+<MidiLearnPage>
+    name: 'MidiLearnPage'
+    Button:
+        text: 'Back'
+        size_hint_x: 0.15
+        size_hint_y: 0.15
+        pos_hint: {'x': 0.02, 'y': 0.05}
+        on_release: root.screenSel('MidiLearnPage')
+    

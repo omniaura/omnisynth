@@ -243,14 +243,15 @@ export class AudioEngine {
     return () => (this.evolveListeners = this.evolveListeners.filter((l) => l !== cb));
   }
   private emitChange(): void {
-    // Coalesce bursts (e.g. evolution touching several tracks in one bar).
+    // Coalesce bursts (evolution touching several tracks, bar ticks while the
+    // UI is busy) into at most ~20 state snapshots per second.
     if (this.changeScheduled) return;
     this.changeScheduled = true;
-    queueMicrotask(() => {
+    setTimeout(() => {
       this.changeScheduled = false;
       const state = this.getState();
       for (const l of this.changeListeners) l(state);
-    });
+    }, 48);
   }
 
   /** Live audio bands from the visualizer (0..1), used by `band` mod sources. */
@@ -464,6 +465,7 @@ export class AudioEngine {
     if (this.analyserNode) Tone.connect(this.master, this.analyserNode);
     this.masterFx = nodes;
     this.masterFxConfig = chain;
+    this.mods.invalidate();
     this.emitChange();
   }
 
@@ -722,10 +724,14 @@ export class AudioEngine {
       if (!step || !stepFires(step, pass)) return;
       if (track.muted) return;
       if (this.anySolo() && !track.solo) return;
+      // After a main-thread stall Tone replays every missed tick at once; the
+      // audio for those is already in the past, so skip it instead of piling
+      // stale events onto the audio thread and stalling again.
+      if (time < Tone.now() - 0.08) return;
       const velocity = step.velocity ?? (isDrum ? 0.8 : 0.7);
       const t0 = time + (step.nudge ? Math.max(-0.05, Math.min(0.05, step.nudge / 1000)) : 0);
       const ratchet = Math.max(1, Math.min(4, Math.round(step.ratchet ?? 1)));
-      const slot = Tone.Time(subdivision).toSeconds();
+      const slot = ratchet > 1 ? Tone.Time(subdivision).toSeconds() : 0;
       if (typeof synth.portamento === "number") synth.portamento = step.slide ?? basePortamento;
       try {
         for (let r = 0; r < ratchet; r++) {
@@ -750,6 +756,7 @@ export class AudioEngine {
 
     if (this.isPlaying) track.loop.start(Tone.getTransport().nextSubdivision("1m"));
     this.tracks.set(config.id, track);
+    this.mods.invalidate();
 
     this.sections.forEach((section) => {
       if (!section.trackPatterns[config.id]) {
@@ -817,6 +824,7 @@ export class AudioEngine {
     track.panner.dispose();
     track.channel.dispose();
     this.tracks.delete(id);
+    this.mods.invalidate();
     if (!keepMods) {
       this.sections.forEach((s) => delete s.trackPatterns[id]);
       this.mods.removeForTrack(id);

@@ -67,7 +67,19 @@ export const store = createRoot(() => {
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   engine.onChange((state) => setSong(reconcile(state)));
-  engine.onStep(({ trackId, step }) => setCurrentStep(trackId, step));
+  // Playhead updates arrive per step per track (hundreds/s); batch them into one store write per frame.
+  const pendingSteps = new Map<string, number>();
+  let stepFrame = 0;
+  engine.onStep(({ trackId, step }) => {
+    pendingSteps.set(trackId, step);
+    if (stepFrame) return;
+    stepFrame = requestAnimationFrame(() => {
+      stepFrame = 0;
+      const batch = Object.fromEntries(pendingSteps);
+      pendingSteps.clear();
+      setCurrentStep(batch);
+    });
+  });
 
   function setVisuals(code: string): void {
     setVisualsSignal(code);

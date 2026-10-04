@@ -1,10 +1,17 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { engine, type TrackState } from "../engine/engine";
 import { store } from "../stores/app";
 import { INSTRUMENT_PRESETS } from "../engine/presets";
 import type { Step } from "../engine/patterns";
 
-/** Track list with inline mixer controls and a clickable step grid per track. */
+/**
+ * Track list with inline mixer controls and a step grid per track. Short
+ * patterns (≤ 64 steps) are clickable buttons; long ones (agent-written
+ * 224–896 step lines) are drawn on a canvas strip so the DOM stays small and
+ * the playhead costs one draw call instead of hundreds of class flips.
+ */
+
+const BUTTON_GRID_MAX = 64;
 
 function stepLabel(s: Step): string {
   if (s.rest) return "";
@@ -13,15 +20,119 @@ function stepLabel(s: Step): string {
   return s.note ?? "";
 }
 
+function cssVar(name: string, fallback: string): string {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+/** Canvas strip for long patterns: velocity-shaded cells, beat ticks, locks, playhead. */
+function StepStrip(props: { track: TrackState; onToggle: (i: number) => void }) {
+  let canvas: HTMLCanvasElement | undefined;
+  let playhead: HTMLDivElement | undefined;
+  const current = () => store.currentStep[props.track.id] ?? -1;
+
+  function draw(): void {
+    if (!canvas) return;
+    const notes = props.track.pattern.notes;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (!w || !h) return;
+    if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const n = notes.length || 1;
+    const cw = w / n;
+    const accent = cssVar("--accent-primary", "#ff3366");
+    const bg = cssVar("--bg-secondary", "#12121a");
+    const border = cssVar("--border-strong", "#363648");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < n; i++) {
+      const s = notes[i];
+      const x = i * cw;
+      if (!s.rest) {
+        const vel = Math.max(0.15, Math.min(1, s.velocity ?? 0.8));
+        ctx.globalAlpha = 0.35 + vel * 0.65;
+        ctx.fillStyle = accent;
+        ctx.fillRect(x + 0.5, 2, Math.max(1, cw - 1), h - 4);
+        ctx.globalAlpha = 1;
+        if (s.ratchet && s.ratchet > 1) {
+          ctx.fillStyle = "rgba(255,255,255,0.8)";
+          for (let r = 1; r < s.ratchet; r++) ctx.fillRect(x + (cw * r) / s.ratchet, 2, 1, h - 4);
+        }
+        if (s.prob !== undefined && s.prob < 1) {
+          ctx.fillStyle = "rgba(0,0,0,0.35)";
+          ctx.fillRect(x + 0.5, 2, Math.max(1, cw - 1), (h - 4) * (1 - s.prob));
+        }
+      }
+      if (s.lock) {
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+        ctx.setLineDash([2, 2]);
+        ctx.strokeRect(x + 1, 1.5, Math.max(1, cw - 2), h - 3);
+        ctx.setLineDash([]);
+      }
+      if (i % 16 === 0) {
+        ctx.fillStyle = border;
+        ctx.fillRect(Math.floor(x), 0, 1, h);
+      } else if (i % 4 === 0 && cw >= 3) {
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(Math.floor(x), 0, 1, h);
+      }
+    }
+  }
+
+  // Redraw when the pattern changes; the playhead is a separate element so it never triggers a redraw.
+  createEffect(() => {
+    void props.track.pattern.notes;
+    void props.track.pattern.notes.length;
+    queueMicrotask(draw);
+  });
+  createEffect(() => {
+    const i = current();
+    if (!playhead || !canvas) return;
+    const n = props.track.pattern.notes.length || 1;
+    playhead.style.transform = `translateX(${(i / n) * canvas.clientWidth}px)`;
+    playhead.style.width = `${Math.max(2, canvas.clientWidth / n)}px`;
+  });
+  onMount(() => {
+    const ro = new ResizeObserver(() => draw());
+    if (canvas) ro.observe(canvas);
+    onCleanup(() => ro.disconnect());
+  });
+
+  function onClick(e: MouseEvent): void {
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const n = props.track.pattern.notes.length || 1;
+    const i = Math.floor(((e.clientX - rect.left) / rect.width) * n);
+    props.onToggle(Math.max(0, Math.min(n - 1, i)));
+  }
+
+  return (
+    <div class="step-strip" title={`${props.track.pattern.notes.length} steps @ ${props.track.pattern.subdivision} — click to toggle a step`}>
+      <canvas ref={canvas} onClick={onClick} />
+      <div ref={playhead} class="step-strip-playhead" />
+    </div>
+  );
+}
+
 function TrackRow(props: { track: TrackState }) {
   const [editing, setEditing] = createSignal(false);
   const [notesText, setNotesText] = createSignal("");
   const current = () => store.currentStep[props.track.id] ?? -1;
   const isDrum = () => props.track.pattern.notes.every((s) => s.rest || s.hit);
+  const dense = () => props.track.pattern.notes.length > BUTTON_GRID_MAX;
 
   function toggleStep(i: number): void {
     const notes = props.track.pattern.notes.map((s) => ({ ...s }));
     const s = notes[i];
+    if (!s) return;
     if (s.rest) notes[i] = isDrum() ? { hit: true, velocity: 0.85 } : { note: `${store.song.key}3`, duration: props.track.pattern.subdivision, velocity: 0.8 };
     else notes[i] = { rest: true };
     engine.updateTrack(props.track.id, { notes });
@@ -69,7 +180,9 @@ function TrackRow(props: { track: TrackState }) {
           </button>
           <input class="fader" type="range" min="-40" max="6" step="0.5" value={props.track.volume} onInput={(e) => engine.updateTrack(props.track.id, { volume: Number(e.currentTarget.value) })} title={`${props.track.volume} dB`} />
           <input class="pan" type="range" min="-1" max="1" step="0.05" value={props.track.pan} onInput={(e) => engine.updateTrack(props.track.id, { pan: Number(e.currentTarget.value) })} title="Pan" />
-          <span class="grid-label">{props.track.pattern.subdivision}</span>
+          <span class="grid-label">
+            {props.track.pattern.notes.length}·{props.track.pattern.subdivision}
+          </span>
           <button class="chip" onClick={openEditor} title="Edit pattern JSON">
             {"{}"}
           </button>
@@ -78,18 +191,20 @@ function TrackRow(props: { track: TrackState }) {
           </button>
         </div>
       </div>
-      <div class={`steps ${props.track.pattern.notes.length > 32 ? "dense" : ""}`} style={{ "--count": props.track.pattern.notes.length }}>
-        <For each={props.track.pattern.notes}>
-          {(step, i) => (
-            <button class={`step ${step.rest ? "" : "on"} ${current() === i() ? "now" : ""} ${i() % 4 === 0 ? "beat" : ""} ${step.lock ? "locked" : ""} ${step.prob !== undefined && step.prob < 1 ? "prob" : ""}`} style={{ "--vel": step.velocity ?? 0.8 }} onClick={() => toggleStep(i())} title={`Step ${i() + 1}${step.prob !== undefined ? ` · p${step.prob}` : ""}${step.ratchet ? ` · ×${step.ratchet}` : ""}${step.cond ? ` · ${step.cond}` : ""}`}>
-              <span>{stepLabel(step)}</span>
-              <Show when={step.ratchet && step.ratchet > 1}>
-                <i class="ratchet">×{step.ratchet}</i>
-              </Show>
-            </button>
-          )}
-        </For>
-      </div>
+      <Show when={!dense()} fallback={<StepStrip track={props.track} onToggle={toggleStep} />}>
+        <div class="steps" style={{ "--count": props.track.pattern.notes.length }}>
+          <For each={props.track.pattern.notes}>
+            {(step, i) => (
+              <button class={`step ${step.rest ? "" : "on"} ${current() === i() ? "now" : ""} ${i() % 4 === 0 ? "beat" : ""} ${step.lock ? "locked" : ""} ${step.prob !== undefined && step.prob < 1 ? "prob" : ""}`} style={{ "--vel": step.velocity ?? 0.8 }} onClick={() => toggleStep(i())} title={`Step ${i() + 1}${step.prob !== undefined ? ` · p${step.prob}` : ""}${step.ratchet ? ` · ×${step.ratchet}` : ""}${step.cond ? ` · ${step.cond}` : ""}`}>
+                <span>{stepLabel(step)}</span>
+                <Show when={step.ratchet && step.ratchet > 1}>
+                  <i class="ratchet">×{step.ratchet}</i>
+                </Show>
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
       <Show when={editing()}>
         <div class="pattern-editor">
           <textarea value={notesText()} onInput={(e) => setNotesText(e.currentTarget.value)} rows="3" spellcheck={false} />

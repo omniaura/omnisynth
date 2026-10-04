@@ -63,6 +63,8 @@ interface Live {
   lfo?: Tone.LFO;
   follower?: Tone.Meter;
   followerGain?: Tone.Gain;
+  /** Cached target handle; cleared by invalidate() when the node graph changes. */
+  handle?: ParamHandle | null;
   phase: number;
   shValue: number;
   lastStep: number;
@@ -268,7 +270,8 @@ export class ModMatrix {
 
   private step(time: number): void {
     const now = Tone.getTransport().seconds;
-    void time;
+    // Skip catch-up ticks after a stall; the next on-time tick resumes modulation.
+    if (time < Tone.now() - 0.08) return;
     const snapshot: Record<string, number> = {};
     for (const live of this.mods.values()) {
       const raw = this.sourceValue(live, now);
@@ -277,7 +280,8 @@ export class ModMatrix {
       let v = Math.max(0, Math.min(1, raw));
       if (m.curve && m.curve !== 1) v = Math.pow(v, m.curve);
       const value = m.offset + m.depth * (m.bipolar ? v * 2 - 1 : v);
-      const handle = this.resolve(m.target);
+      if (live.handle === undefined) live.handle = this.resolve(m.target);
+      const handle = live.handle;
       if (!handle) continue;
       const clamped = Math.max(handle.min, Math.min(handle.max, value));
       handle.set(clamped, 0.03);
@@ -285,6 +289,11 @@ export class ModMatrix {
       snapshot[m.id] = clamped;
     }
     if (this.onValues) Tone.getDraw().schedule(() => this.onValues?.(snapshot), time);
+  }
+
+  /** Forget cached parameter handles (tracks or master chain were rebuilt). */
+  invalidate(): void {
+    for (const live of this.mods.values()) live.handle = undefined;
   }
 }
 

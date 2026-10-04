@@ -39,7 +39,11 @@ export default function Arrangement() {
                 <div class={`section-chip ${i() === song.currentSectionIndex ? "current" : ""}`} style={{ "--bars": sec()?.bars ?? 8 }}>
                   <button class="section-jump" onClick={() => engine.jumpToSection(id)} title="Jump to section">
                     <span class="section-name">{sec()?.name ?? id}</span>
-                    <span class="section-bars">{sec()?.bars ?? "?"} bars</span>
+                    <span class="section-bars">
+                      {sec()?.bars ?? "?"} bars
+                      <Show when={sec()?.timeSignature}>{(t) => <span class="section-meta"> · {t()[0]}/{t()[1]}</span>}</Show>
+                      <Show when={sec()?.bpm}>{(b) => <span class="section-meta"> · {b()} bpm</span>}</Show>
+                    </span>
                   </button>
                   <div class="section-actions">
                     <button onClick={() => move(i(), -1)} title="Move left">

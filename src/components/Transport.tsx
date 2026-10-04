@@ -23,7 +23,7 @@ const Icon = {
   ),
 };
 
-export default function Transport() {
+export default function Transport(props: { onToggleView: () => void }) {
   const song = store.song;
   const provider = () => store.providers().find((p) => p.id === store.settings.orchestrateProvider);
 
@@ -99,6 +99,9 @@ export default function Transport() {
         </button>
         <button class={`btn-ghost ${store.visualsOpen() ? "active" : ""}`} onClick={() => store.setVisualsOpen(!store.visualsOpen())} title="Visuals code">
           Visuals
+        </button>
+        <button class="btn-ghost" onClick={props.onToggleView} title="Full-screen visualizer (F)" data-testid="visualizer">
+          ⛶
         </button>
         <button class={`btn-ghost ${store.composerOpen() ? "active" : ""}`} onClick={() => store.setComposerOpen(!store.composerOpen())} title="Toggle composer">
           Composer

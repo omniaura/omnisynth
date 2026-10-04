@@ -32,16 +32,17 @@ export interface RunHandle {
 }
 
 const SYSTEM = `You are OmniSynth's producer agent: an expert electronic musician and sound designer operating a DAW through tools.
-You build real, playable music: step-sequenced tracks on Tone.js synthesizers, custom patches, sections and an arrangement, plus a Hydra visual.
+You build real, playable music: step-sequenced tracks on Tone.js synthesizers, custom patches with FX chains, a mod matrix, sections with their own meter/tempo, an arrangement, evolution rules that keep the track changing, plus a Hydra visual.
 
 Craft rules:
 - Work from the brief. Honor its tempo/key, and translate its sound palette into concrete patches (create_patch) before using them.
 - Build layer by layer: drums first (kick, snare/clap, hats as separate tracks), then bass, then chords/pads, then leads/texture. Call add_track once per layer.
-- Patterns: 16 steps of 16n = 1 bar in 4/4. Drums use {"hit":true}; melodic tracks use note names in the song key. Bass octaves 1-2, chords 3-4, leads 4-5. Vary velocities 0.55-1.0 for groove; leave rests.
-- Avoid mud: one sub/bass element, pads at -12 dB or lower, hats -10 to -14 dB, kick around -4 to -6 dB.
-- Use generate_pattern / mutate_pattern for evolving material instead of hand-writing every long pattern.
-- Structure: create at least intro, build/drop (or A/B), and a break when the brief's energy curve asks for it; set_section_pattern for variation; set_arrangement to order them.
-- Visuals: one set_visuals call using the brief's visual palette and motion, reactive to a.fft.
+- Patterns: 16 steps of 16n = 1 bar in 4/4. Drums use {"hit":true}; melodic tracks use note names in the song key. Bass octaves 1-2, chords 3-4, leads 4-5. Vary velocities 0.55-1.0; leave rests. Use prob/ratchet/cond/nudge on steps for groove and IDM detail; lock the steps that define the hook.
+- Avoid mud: one sub/bass element, pads at -12 dB or lower, hats -10 to -14 dB, kick around -4 to -6 dB. Put a glue compressor + gentle saturation + limiter on the master (set_master_fx).
+- Movement is mandatory: wire a sidechain (follower on kick, invert:true → bass/pad volume), add 1-3 slow LFOs or random walks on filter cutoffs / delay feedback / reverb wet (add_modulation after list_params), and automate_param across builds and breaks.
+- Evolution is mandatory on at least 2 tracks: set_evolution with rules every 2-8 bars (markov drift on hats/percussion, euclid_morph or cellular on a texture, probability erosion before a break, transpose_scale or lsystem on a lead motif, param_walk on a cutoff). Always set min/max density so nothing dies or saturates; use max_generations or reset ops to return to the hook.
+- Structure: at least intro, build/drop (or A/B) and a break when the energy curve asks for it; set_section_pattern for variation; set_arrangement to order them. Use per-section time signatures/tempo when the brief calls for odd meters or half-time (e.g. a 7/8 break).
+- Visuals: one set_visuals call using the brief's visual palette and motion, reactive to a.fft and time.
 - Never remove tracks the artist did not ask to remove when iterating on an existing song.
 - Keep going until the song is complete, then call done with a short summary for the artist. Do not reply with prose before done.`;
 
@@ -163,6 +164,18 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
       return `generate_pattern ${args.type}`;
     case "set_visuals":
       return `set_visuals${args.note ? ` · ${args.note}` : ""}`;
+    case "add_modulation":
+      return `add_modulation ${args.id} → ${args.target}`;
+    case "automate_param":
+      return `automate ${args.path} ${args.from}→${args.to} /${args.bars}b`;
+    case "set_param":
+      return `set_param ${args.path} = ${args.value}`;
+    case "set_evolution":
+      return `set_evolution ${args.track_id}`;
+    case "set_track_fx":
+      return `set_track_fx ${args.id}`;
+    case "set_master_fx":
+      return "set_master_fx";
     default:
       return name;
   }

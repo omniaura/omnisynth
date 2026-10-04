@@ -42,6 +42,7 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
         total += v;
       });
       audio.level = total / 4;
+      engine.setAudioBands(audio.fft);
     }
     raf = requestAnimationFrame(tickAudio);
   }

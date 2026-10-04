@@ -62,6 +62,7 @@ export const store = createRoot(() => {
   const [composerOpen, setComposerOpen] = createSignal(true);
   const [songName, setSongName] = createSignal("Untitled");
   const [toast, setToast] = createSignal<string | null>(null);
+  const [view, setView] = createSignal<"studio" | "visualizer">("studio");
   let logId = 0;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -126,6 +127,8 @@ export const store = createRoot(() => {
     setSongName,
     toast,
     showToast,
+    view,
+    setView,
   };
 });
 

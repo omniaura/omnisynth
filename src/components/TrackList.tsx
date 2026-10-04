@@ -52,6 +52,15 @@ function TrackRow(props: { track: TrackState }) {
           </select>
         </div>
         <div class="track-controls">
+          <Show when={props.track.fx.length}>
+            <span class="badge tiny" title={props.track.fx.map((f) => f.type).join(" › ")}>fx {props.track.fx.length}</span>
+          </Show>
+          <Show when={props.track.modCount}>
+            <span class="badge tiny mod" title="modulations">mod {props.track.modCount}</span>
+          </Show>
+          <Show when={props.track.rules.length}>
+            <span class="badge tiny evolve" title={props.track.rules.map((r) => `${r.id}: ${r.ops.map((o) => o.type).join(",")} every ${r.every} bars`).join("\n")}>evolving</span>
+          </Show>
           <button class={`chip ${props.track.muted ? "on" : ""}`} onClick={() => engine.setMute(props.track.id, !props.track.muted)} title="Mute">
             M
           </button>
@@ -72,8 +81,11 @@ function TrackRow(props: { track: TrackState }) {
       <div class={`steps ${props.track.pattern.notes.length > 32 ? "dense" : ""}`} style={{ "--count": props.track.pattern.notes.length }}>
         <For each={props.track.pattern.notes}>
           {(step, i) => (
-            <button class={`step ${step.rest ? "" : "on"} ${current() === i() ? "now" : ""} ${i() % 4 === 0 ? "beat" : ""}`} style={{ "--vel": step.velocity ?? 0.8 }} onClick={() => toggleStep(i())} title={`Step ${i() + 1}`}>
+            <button class={`step ${step.rest ? "" : "on"} ${current() === i() ? "now" : ""} ${i() % 4 === 0 ? "beat" : ""} ${step.lock ? "locked" : ""} ${step.prob !== undefined && step.prob < 1 ? "prob" : ""}`} style={{ "--vel": step.velocity ?? 0.8 }} onClick={() => toggleStep(i())} title={`Step ${i() + 1}${step.prob !== undefined ? ` · p${step.prob}` : ""}${step.ratchet ? ` · ×${step.ratchet}` : ""}${step.cond ? ` · ${step.cond}` : ""}`}>
               <span>{stepLabel(step)}</span>
+              <Show when={step.ratchet && step.ratchet > 1}>
+                <i class="ratchet">×{step.ratchet}</i>
+              </Show>
             </button>
           )}
         </For>

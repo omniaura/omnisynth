@@ -93,6 +93,7 @@ export async function importSongFile(): Promise<void> {
 export const toolContext: ToolContext = {
   setVisuals: (code) => store.setVisuals(code),
   getVisuals: () => store.visuals(),
+  setView: (view) => store.setView(view),
   saveSong,
   listSongs: () => listSongs().map((s) => ({ name: s.name, key: s.key, bpm: s.bpm, tracks: s.tracks })),
   loadSong,

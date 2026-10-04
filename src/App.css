@@ -355,3 +355,51 @@ kbd { font-family: var(--font-mono); font-size: 10px; opacity: 0.7; margin-left:
   .workspace { grid-template-columns: minmax(0, 1fr) 340px; }
 }
 .provider-pill .pill-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* Visualizer mode */
+.app.cursor-hidden, .app.cursor-hidden * { cursor: none !important; }
+.visualizer-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.visualizer-pill {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+  pointer-events: auto; display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px; font-size: 12px;
+  background: rgba(10, 10, 15, 0.55); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-secondary);
+  backdrop-filter: blur(14px); opacity: 0.35; transition: opacity 0.25s ease;
+}
+.visualizer-pill:hover { opacity: 1; color: var(--text-primary); }
+.app.cursor-hidden .visualizer-pill { opacity: 0; }
+.visualizer-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+.visualizer-pill .dot.live { background: var(--accent-secondary); box-shadow: 0 0 10px var(--accent-secondary); }
+.visualizer-status {
+  position: absolute; top: 18px; right: 18px; display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary);
+  background: rgba(10, 10, 15, 0.55); border: 1px solid rgba(255, 255, 255, 0.12); backdrop-filter: blur(14px);
+}
+
+/* Mod & evolution panel */
+.mods { flex: none; max-height: 240px; }
+.mods-body { overflow-y: auto; padding: 8px 10px; display: grid; gap: 4px; font-family: var(--font-mono); font-size: 11px; }
+.mod-row { display: grid; grid-template-columns: 110px 110px 14px minmax(0, 1fr) 70px 90px 24px; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; background: rgba(26, 26, 37, 0.6); }
+.mod-row.auto { grid-template-columns: 110px 110px 14px minmax(0, 1fr) 160px 24px; }
+.mod-row.macro { grid-template-columns: 110px 110px minmax(0, 1fr) 70px; }
+.mod-row.rule { grid-template-columns: 110px 110px minmax(0, 1fr) 70px 24px 24px; border-left: 2px solid var(--accent-tertiary); }
+.mod-row.macro input[type=range] { accent-color: var(--accent-secondary); }
+.mod-id { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mod-src { color: var(--accent-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mod-arrow { color: var(--text-muted); }
+.mod-target { color: var(--accent-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mod-value { color: var(--text-secondary); text-align: right; white-space: nowrap; }
+.mod-bar { height: 6px; border-radius: 3px; background: var(--bg-secondary); overflow: hidden; }
+.mod-fill { height: 100%; background: linear-gradient(90deg, var(--accent-tertiary), var(--accent-secondary)); transition: width 0.08s linear; }
+.evolve-feed { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.evolve-event { font-size: 10px; color: var(--text-muted); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-color); }
+
+/* Track badges and step detail */
+.badge.tiny { font-size: 9px; padding: 1px 6px; }
+.badge.mod { color: var(--accent-tertiary); border-color: rgba(153, 102, 255, 0.4); }
+.badge.evolve { color: var(--accent-secondary); border-color: rgba(0, 255, 204, 0.4); animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 10px rgba(0, 255, 204, 0.35); } }
+.step.locked { outline: 1px dashed rgba(255, 255, 255, 0.35); outline-offset: -2px; }
+.step.prob { background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(0, 0, 0, 0.25) 3px 5px); }
+.step .ratchet { position: absolute; right: 2px; bottom: 1px; font-size: 8px; font-style: normal; color: rgba(255, 255, 255, 0.8); }
+.section-meta { color: var(--accent-tertiary); }

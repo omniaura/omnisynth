@@ -228,7 +228,9 @@ function parseFx(input: unknown): EffectConfig[] {
   if (input === undefined || input === null || input === "") return [];
   const raw = typeof input === "string" ? (JSON.parse(input) as unknown) : input;
   if (!Array.isArray(raw)) throw new Error("fx must be a JSON array of effect objects");
-  return raw.filter((e) => e && typeof e === "object" && "type" in e) as EffectConfig[];
+  const bad = raw.filter((e) => !e || typeof e !== "object" || !("type" in e));
+  if (bad.length) throw new Error(`fx entries missing "type": ${JSON.stringify(bad).slice(0, 120)}`);
+  return raw as EffectConfig[];
 }
 
 function patchFromArgs(args: Record<string, unknown>): Patch {
@@ -416,8 +418,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     case "evolve_now": {
       const id = String(args.track_id);
       if (args.rule) {
-        const [rule] = parseRules(args.rule);
-        const out = engine.applyRule(id, rule);
+          const [rule] = parseRules(args.rule);
+          if (!rule) return `Error: could not parse rule for "${id}"`;
+          const out = engine.applyRule(id, rule);
         return `Evolved ${id}: ${describeSteps(out, 32)}`;
       }
       const state = engine.getState().tracks.find((t) => t.id === id);
@@ -435,8 +438,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       ctx.setVisuals(String(args.code));
       return `Visuals updated${args.note ? `: ${args.note}` : ""}.`;
     case "set_view":
-      ctx.setView(args.view === "visualizer" ? "visualizer" : "studio");
-      return `View: ${args.view}.`;
+      const view = args.view === "visualizer" ? "visualizer" : "studio";
+      ctx.setView(view);
+      return `View: ${view}.`;
 
     case "play":
       await engine.play();

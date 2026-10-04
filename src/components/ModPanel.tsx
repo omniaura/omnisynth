@@ -41,7 +41,7 @@ export default function ModPanel() {
                 <span class="mod-src">{m.source.type}{m.source.type === "follower" ? `(${m.source.track})` : m.source.type === "lfo" ? `(${m.source.rate})` : ""}</span>
                 <span class="mod-arrow">→</span>
                 <span class="mod-target">{m.target}</span>
-                <span class="mod-value">{values()[m.id] !== undefined ? values()[m.id].toFixed(2) : "audio-rate"}</span>
+                <span class="mod-value">{values()[m.id] !== undefined ? values()[m.id].toFixed(2) : "—"}</span>
                 <div class="mod-bar">
                   <div class="mod-fill" style={{ width: `${Math.round(normalized(values()[m.id], m) * 100)}%` }} />
                 </div>

@@ -141,8 +141,10 @@ async function engineScenario() {
     ["play", {}],
   ];
   for (const [n, a] of calls) {
-    const res = await page.evaluate(async ([name, args]) => { try { return await window.__omnisynth.tools(name, args); } catch (e) { return `THROW: ${e.message}`; } }, [n, a]);
-    console.log(`${n}: ${String(res).split("\n").slice(0, 3).join(" | ").slice(0, 220)}`);
+      const res = await page.evaluate(async ([name, args]) => { try { return await window.__omnisynth.tools(name, args); } catch (e) { return `THROW: ${e.message}`; } }, [n, a]);
+      const text = String(res);
+      console.log(`${n}: ${text.split("\n").slice(0, 3).join(" | ").slice(0, 220)}`);
+      if (/^(?:Error:|THROW:)/.test(text)) throw new Error(`tool ${n} failed: ${text.slice(0, 200)}`);
   }
   await page.waitForTimeout(9000);
   const st = await page.evaluate(() => {

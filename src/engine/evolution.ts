@@ -89,7 +89,7 @@ export function cellular(steps: Step[], rule = 90, seedMode: "pattern" | "random
   }
   // Never let the automaton die or saturate completely.
   const on = next.reduce((a, b) => a + b, 0);
-  if (on === 0 || on === n) return cellular(steps, rule, "random", wrap, fill);
+  if (on === 0 || on === n) next[0] = on === 0 ? 1 : 0;
   return next.map((v, i) => {
     if (steps[i]?.lock) return steps[i];
     if (!v) return { rest: true };
@@ -158,7 +158,7 @@ export function genetic(steps: Step[], ctx: EvolveContext, targets: GeneticTarge
     pop = [...elite, ...Array.from({ length: population - elite.length }, () => mutate(elite[Math.floor(Math.random() * elite.length)]))];
   }
   pop.sort((a, b) => fitness(b) - fitness(a));
-  return pop[0];
+  return pop[0].map((s, i) => (steps[i]?.lock ? { ...steps[i] } : s));
 }
 
 /** Applies one op to a pattern; param_walk/reset are handled by the engine. */
@@ -215,6 +215,10 @@ export function applyOp(steps: Step[], op: EvolveOp, ctx: EvolveContext): Step[]
       return ctx.seed.map((s) => ({ ...s }));
     case "param_walk":
       return steps;
+    default: {
+      const unknown = op as { type?: string };
+      throw new Error(`unknown evolve op "${unknown.type}"`);
+    }
   }
 }
 
@@ -237,7 +241,7 @@ export function parseRules(input: unknown): EvolveRule[] {
     if (!rule || !Array.isArray(rule.ops) || rule.ops.length === 0) throw new Error(`rule ${i}: ops[] required`);
     return {
       id: rule.id ?? `rule-${i + 1}`,
-      every: Math.max(1, Number(rule.every ?? 4)),
+      every: (() => { const n = Number(rule.every ?? 4); return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 4; })(),
       prob: rule.prob === undefined ? 1 : Math.max(0, Math.min(1, Number(rule.prob))),
       ops: rule.ops,
       min_density: rule.min_density,

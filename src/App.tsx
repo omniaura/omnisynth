@@ -31,7 +31,7 @@ export default function App() {
       if (engine.isPlaying) engine.stop();
       else void engine.play();
     }
-    if (e.key === "f" || e.key === "F") {
+    if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       toggleView();
     }

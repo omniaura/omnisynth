@@ -50,8 +50,10 @@ export function stepFires(step: Step, pass: number): boolean {
       const negate = m[1] === "!";
       const n = Number(m[2]);
       const of = Number(m[3]);
-      const hit = of > 0 && ((pass - 1) % of) + 1 === n;
-      if (negate ? hit : !hit) return false;
+      if (of > 0 && n >= 1 && n <= of) {
+        const hit = ((pass - 1) % of) + 1 === n;
+        if (negate ? hit : !hit) return false;
+      }
     }
   }
   if (step.prob !== undefined && step.prob < 1 && Math.random() > step.prob) return false;
@@ -213,7 +215,10 @@ export const Mutators = {
   stutter(steps: Step[], probability = 0.15, maxRatchet = 3): Step[] {
     return steps.map((s) => {
       if (s.rest || s.lock) return s;
-      if (Math.random() < probability) return { ...s, ratchet: 2 + Math.floor(Math.random() * Math.max(1, maxRatchet - 1)) };
+      if (Math.random() < probability) {
+        const upper = Math.max(1, Math.min(4, Math.floor(maxRatchet)));
+        return { ...s, ratchet: upper < 2 ? 1 : 2 + Math.floor(Math.random() * (upper - 1)) };
+      }
       return { ...s, ratchet: undefined };
     });
   },

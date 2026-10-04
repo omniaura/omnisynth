@@ -772,7 +772,10 @@ export class AudioEngine {
     this.totalBars++;
     this.currentBar++;
     const section = this.getCurrentSection();
-    const secondsPerBar = (60 / this.bpm) * beats * (4 / unit);
+    const nextSection = section && this.currentBar >= section.bars
+      ? this.sections.get(this.arrangement[(this.currentSectionIndex + 1) % this.arrangement.length])
+      : section;
+    const secondsPerBar = (60 / (nextSection?.bpm ?? this.bpm)) * beats * (4 / unit);
     this.mods.onBar(this.totalBars, secondsPerBar);
     this.mods.setPositions(section ? this.currentBar / section.bars : (this.currentBar % 8) / 8, this.arrangement.length ? this.currentSectionIndex / this.arrangement.length : 0);
     this.runEvolution();
@@ -1142,12 +1145,12 @@ export class AudioEngine {
       this.addTrack({ ...config, pattern: { subdivision: config.pattern.subdivision ?? "16n", notes: parseSteps(config.pattern.notes) } });
       const track = this.tracks.get(config.id)!;
       if (muted) track.muted = true;
-      if (rules) track.rules = rules.map((r) => ({ ...r, fired: 0 }));
+        if (rules) track.rules = parseRules(rules).map((r) => ({ ...r, fired: 0 }));
       if (seed) track.seed = seed;
     }
     for (const s of song.sections ?? []) this.sections.set(s.id, { ...s, trackPatterns: { ...s.trackPatterns } });
     this.arrangement = (song.arrangement ?? []).filter((id) => this.sections.has(id));
-    if (song.masterFx) this.setMasterFx(song.masterFx);
+      this.setMasterFx(song.masterFx ?? []);
     for (const [k, v] of Object.entries(song.macros ?? {})) this.mods.setMacro(k, v);
     for (const m of song.modulations ?? []) {
       try {

@@ -24,7 +24,7 @@ function index(): string[] {
 }
 
 export function saveSong(name: string): string {
-  const key = `omnisynth.song.${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const key = `omnisynth.song.${encodeURIComponent(name)}`;
   const file = engine.exportSong(name, store.visuals());
   localStorage.setItem(key, JSON.stringify(file));
   const keys = index();
@@ -73,21 +73,30 @@ export async function exportSongFile(): Promise<void> {
   }
   const blob = new Blob([json], { type: "application/json" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `${store.songName() || "song"}.omnisynth.json`;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export async function importSongFile(): Promise<void> {
   const b = bridge();
-  if (!b) return;
-  const json = await b.files.openJson();
-  if (!json) return;
-  const file = JSON.parse(json) as SongFile;
-  await engine.importSong(file);
-  if (file.visuals) store.setVisuals(file.visuals);
-  store.setSongName(file.name ?? "Imported");
-  store.showToast(`Imported "${file.name ?? "song"}"`);
+  if (!b) {
+    store.showToast("Song import is only available in the desktop app");
+    return;
+  }
+  try {
+    const json = await b.files.openJson();
+    if (!json) return;
+    const file = JSON.parse(json) as SongFile;
+    await engine.importSong(file);
+    if (file.visuals) store.setVisuals(file.visuals);
+    store.setSongName(file.name ?? "Imported");
+    store.showToast(`Imported "${file.name ?? "song"}"`);
+  } catch {
+    store.showToast("Could not import song file");
+  }
 }
 
 export const toolContext: ToolContext = {

@@ -93,7 +93,7 @@ export async function analyzeAudio(base64: string, mime: string): Promise<AudioF
     const off = Math.floor(((len - N) * w) / Math.max(1, windows - 1));
     for (let i = 0; i < N; i++) {
       const hann = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N);
-      re[i] = mono[off + i] * hann;
+      re[i] = (mono[off + i] ?? 0) * hann;
       im[i] = 0;
     }
     fft(re, im);

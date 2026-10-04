@@ -19,7 +19,14 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
   let canvasRef: HTMLCanvasElement | undefined;
   let hydra: Hydra | null = null;
   let raf = 0;
-  const audio = { fft: [0, 0, 0, 0], level: 0 };
+    const audio = {
+      fft: [0, 0, 0, 0],
+      level: 0,
+      setBins: (_n: number) => {},
+      setSmooth: (_s: number) => {},
+      setCutoff: (_f: number) => {},
+      setScale: (..._args: number[]) => {},
+    };
   const bins = new Uint8Array(256);
 
   function tickAudio(): void {

@@ -59,12 +59,12 @@ export async function runGenerate(): Promise<void> {
     store.showToast("Type a prompt or attach something first");
     return;
   }
-  await engine.init();
-  store.clearLog();
   const handle = createRunHandle();
   activeHandle = handle;
 
   try {
+    await engine.init();
+    store.clearLog();
     let brief = store.brief();
     const wantsPerceive = !store.settings.skipPerceive && (attachments.length > 0 || !brief);
     if (wantsPerceive) {

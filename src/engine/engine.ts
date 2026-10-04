@@ -331,12 +331,11 @@ export class AudioEngine {
 
     track.loop = new Tone.Loop((time) => {
       const steps = track.current.notes;
+      this.advanceBarClock(track, subdivision);
       if (!steps || steps.length === 0) return;
       const idx = track.stepIndex % steps.length;
       const step = steps[idx];
       track.stepIndex++;
-
-      this.advanceBarClock(track, subdivision);
       Tone.getDraw().schedule(() => {
         for (const l of this.stepListeners) l({ trackId: config.id, step: idx });
       }, time);
@@ -437,6 +436,10 @@ export class AudioEngine {
     }
     track.config = config;
     track.current = config.pattern;
+    if (updates.notes !== undefined || updates.pattern?.notes !== undefined) {
+      const section = this.getCurrentSection();
+      if (section) section.trackPatterns[id] = config.pattern.notes;
+    }
     if (updates.volume !== undefined) track.channel.volume.rampTo(updates.volume, 0.05);
     if (updates.pan !== undefined) track.panner.pan.rampTo(updates.pan, 0.05);
     if (updates.name) track.config.name = updates.name;
@@ -575,10 +578,14 @@ export class AudioEngine {
       default:
         throw new Error(`unknown mutation "${mutation}"`);
     }
-    track.config.pattern = { ...track.config.pattern, notes: out };
-    track.current = track.config.pattern;
     const section = this.getCurrentSection();
-    if (section) section.trackPatterns[trackId] = out;
+    if (section) {
+      section.trackPatterns[trackId] = out;
+      track.current = { ...track.config.pattern, notes: out };
+    } else {
+      track.config.pattern = { ...track.config.pattern, notes: out };
+      track.current = track.config.pattern;
+    }
     this.emitChange();
     return out;
   }
@@ -659,7 +666,7 @@ export class AudioEngine {
     }
     for (const t of song.tracks ?? []) {
       const { muted, ...config } = t;
-      this.addTrack({ ...config, pattern: { subdivision: config.pattern.subdivision ?? "16n", notes: parseSteps(config.pattern.notes) } });
+      this.addTrack({ ...config, pattern: { subdivision: config.pattern?.subdivision ?? "16n", notes: parseSteps(config.pattern?.notes ?? []) } });
       if (muted) this.setMute(config.id, true);
     }
     for (const s of song.sections ?? []) this.sections.set(s.id, { ...s, trackPatterns: { ...s.trackPatterns } });

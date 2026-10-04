@@ -97,7 +97,17 @@ export async function orchestrate(opts: {
     const requestId = newRequestId();
     handle.requestId = requestId;
     // Patch ids created mid-run must appear in the instrument enum for the next call.
-    const res = await chat({ provider: opts.provider, model: opts.model, messages, tools: toolDefinitions(), tool_choice: "auto", requestId });
+    const res = await chat({
+      provider: opts.provider,
+      model: opts.model,
+      messages,
+      tools: toolDefinitions(),
+      tool_choice: "auto",
+      requestId,
+    }).catch((err: unknown) => {
+      if (handle.cancelled) throw new Error("cancelled");
+      throw err;
+    });
     void tools;
     const msg = res.message;
     messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
@@ -114,27 +124,31 @@ export async function orchestrate(opts: {
     }
     noToolTurns = 0;
 
-    for (const call of calls) {
-      if (handle.cancelled) throw new Error("cancelled");
-      const name = call.function.name;
-      const args = parseArgs(call);
-      onEvent({ type: "tool_call", text: describeCall(name, args), tool: name, args });
-      let result: string;
-      let ok = true;
-      try {
-        result = "__parse_error" in args ? `Error: arguments were not valid JSON: ${String(args.__parse_error).slice(0, 200)}` : await executeTool(name, args, opts.ctx);
-        ok = !result.startsWith("Error");
-      } catch (err) {
-        result = `Error: ${(err as Error).message}`;
-        ok = false;
+      let turnFailed = false;
+      let doneResult: string | undefined;
+      for (const call of calls) {
+        if (handle.cancelled) throw new Error("cancelled");
+        const name = call.function.name;
+        const args = parseArgs(call);
+        onEvent({ type: "tool_call", text: describeCall(name, args), tool: name, args });
+        let result: string;
+        let ok = true;
+        try {
+          result = "__parse_error" in args ? `Error: arguments were not valid JSON: ${String(args.__parse_error).slice(0, 200)}` : await executeTool(name, args, opts.ctx);
+          ok = !result.startsWith("Error");
+        } catch (err) {
+          result = `Error: ${(err as Error).message}`;
+          ok = false;
+        }
+        onEvent({ type: "tool_result", text: result.length > 400 ? `${result.slice(0, 400)}…` : result, tool: name, ok });
+        messages.push({ role: "tool", tool_call_id: call.id, name, content: result });
+        if (!ok) turnFailed = true;
+        if (name === "done" && ok) doneResult = result;
       }
-      onEvent({ type: "tool_result", text: result.length > 400 ? `${result.slice(0, 400)}…` : result, tool: name, ok });
-      messages.push({ role: "tool", tool_call_id: call.id, name, content: result });
-      if (name === "done") {
-        onEvent({ type: "done", text: result });
-        return result;
+      if (doneResult !== undefined && !turnFailed) {
+        onEvent({ type: "done", text: doneResult });
+        return doneResult;
       }
-    }
   }
   return "Reached the turn limit; the song may be incomplete.";
 }

@@ -219,8 +219,14 @@ export async function resolveProvider(id: ProviderId): Promise<ResolvedProvider>
         apiKey: getSecret("openrouter") || env.OPENROUTER_API_KEY,
         headers: { "HTTP-Referer": "https://github.com/omniaura/omnisynth", "X-Title": "OmniSynth" },
       };
-    case "claude-code":
-      return { baseUrl: info.baseUrl, apiKey: env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY };
+    case "claude-code": {
+      const settings = readJson(join(homedir(), ".claude", "settings.json"));
+      const settingsEnv = (settings?.env as Record<string, string> | undefined) ?? {};
+      return {
+        baseUrl: info.baseUrl,
+        apiKey: env.ANTHROPIC_AUTH_TOKEN || settingsEnv.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY,
+      };
+    }
     case "codex": {
       const cfg = join(homedir(), ".codex", "config.toml");
       const envKeyName = readTomlString(cfg, "env_key") || "OPENAI_API_KEY";

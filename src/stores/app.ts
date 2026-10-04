@@ -74,8 +74,11 @@ export const store = createRoot(() => {
   }
 
   function updateSettings(patch: Partial<Settings>): void {
+    const modelSet = (patch.perceiveModel !== undefined && patch.perceiveModel !== "") || (patch.orchestrateModel !== undefined && patch.orchestrateModel !== "");
+    if (modelSet && settings.autoProvider) patch = { ...patch, autoProvider: false };
     setSettingsStore(patch);
     localStorage.setItem("omnisynth.settings", JSON.stringify({ ...settings, ...patch }));
+  }
   }
 
   function pushLog(e: RunEvent): void {

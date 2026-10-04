@@ -91,7 +91,12 @@ async function edit() {
   await first.locator(".chip", { hasText: "M" }).click();
   await page.waitForTimeout(300);
   await first.locator(".chip", { hasText: "M" }).click();
-  await first.locator(".fader").fill("-20");
+    await first.locator(".fader").evaluate((el, value) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }, "-20");
   await first.locator(".step").nth(2).click();
   await t("bpm").fill("140");
   await t("bpm").press("Enter");

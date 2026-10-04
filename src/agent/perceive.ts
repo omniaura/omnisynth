@@ -76,8 +76,8 @@ async function attachmentParts(attachments: Attachment[], sendAudio: boolean): P
         textNotes.push(`Audio "${a.name}" attached (could not decode locally: ${(err as Error).message}).`);
       }
       if (sendAudio) {
-        const format = a.mime.includes("wav") ? "wav" : "mp3";
-        parts.push({ type: "input_audio", input_audio: { data: a.data, format } });
+        const format = a.mime.includes("wav") ? "wav" : a.mime.includes("mpeg") ? "mp3" : undefined;
+        if (format) parts.push({ type: "input_audio", input_audio: { data: a.data, format } });
       }
     } else textNotes.push(`--- ${a.name} ---\n${a.data.slice(0, 6000)}`);
   }
@@ -100,8 +100,14 @@ export async function perceive(opts: { provider: ProviderId; model: string; prom
   // gateways; strict json_schema modes have returned partial objects.
   messages[0].content += `\n\nJSON schema (every key is required, fill all of them):\n${JSON.stringify(BRIEF_SCHEMA)}`;
   const ask = async () => {
-    const res = await chat({ provider: opts.provider, model: opts.model, messages, requestId });
-    return typeof res.message.content === "string" ? res.message.content : (res.message.content ?? []).map((c) => (c.type === "text" ? c.text : "")).join("");
+    if (opts.signal?.cancelled) throw new Error("cancelled");
+    try {
+      const res = await chat({ provider: opts.provider, model: opts.model, messages, requestId });
+      return typeof res.message.content === "string" ? res.message.content : (res.message.content ?? []).map((c) => (c.type === "text" ? c.text : "")).join("");
+    } catch (err) {
+      if (opts.signal?.cancelled) throw new Error("cancelled");
+      throw err;
+    }
   };
   let raw = await ask();
   let brief = parseBrief(raw);

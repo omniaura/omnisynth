@@ -17,7 +17,7 @@ export default function App() {
 
   function onKeyDown(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
-    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable;
+    const typing = ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName) || target.isContentEditable;
     if (e.key === " " && !typing) {
       e.preventDefault();
       if (engine.isPlaying) engine.stop();

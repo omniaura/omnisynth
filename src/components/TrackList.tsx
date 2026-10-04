@@ -34,8 +34,9 @@ function TrackRow(props: { track: TrackState }) {
 
   function applyNotes(): void {
     try {
-      const notes = JSON.parse(notesText()) as Step[];
-      engine.updateTrack(props.track.id, { notes });
+        const parsed: unknown = JSON.parse(notesText());
+        if (!Array.isArray(parsed)) throw new Error("Pattern notes must be a JSON array");
+        engine.updateTrack(props.track.id, { notes: parsed as Step[] });
       setEditing(false);
     } catch (err) {
       store.showToast(`Pattern JSON invalid: ${(err as Error).message}`);
@@ -100,8 +101,10 @@ export default function TrackList() {
 
   async function addEmptyTrack(): Promise<void> {
     await engine.init();
-    const id = `track-${song.tracks.length + 1}`;
-    engine.addTrack({ id, name: `Track ${song.tracks.length + 1}`, instrument: "synth", volume: -8, pattern: { subdivision: "16n", notes: Array.from({ length: 16 }, () => ({ rest: true })) } });
+    let n = 1;
+    while (song.tracks.some((track) => track.id === `track-${n}`)) n++;
+    const id = `track-${n}`;
+    engine.addTrack({ id, name: `Track ${n}`, instrument: "synth", volume: -8, pattern: { subdivision: "16n", notes: Array.from({ length: 16 }, () => ({ rest: true })) } });
   }
 
   return (

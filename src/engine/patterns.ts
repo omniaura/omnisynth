@@ -190,7 +190,8 @@ function vvel(v: number): number {
 export function normalizeNote(name: string): string {
   const map: Record<string, string> = { Db: "C#", "D#": "Eb", Gb: "F#", "G#": "Ab", "A#": "Bb", Cb: "B", "E#": "F", Fb: "E", "B#": "C" };
   const trimmed = name.trim();
-  return map[trimmed] ?? trimmed;
+  const normalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  return map[normalized] ?? normalized;
 }
 
 /** Parses a notes argument that may arrive as JSON text or as an array. */

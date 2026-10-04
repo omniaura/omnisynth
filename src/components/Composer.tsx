@@ -91,14 +91,18 @@ export default function Composer() {
   }
 
   async function onFiles(files: FileList | File[]): Promise<void> {
-    const list = Array.from(files);
-    const paths = list.map((f) => (f as File & { path?: string }).path).filter((p): p is string => Boolean(p));
-    const b = bridge();
-    let added: Attachment[] = [];
-    if (b && paths.length === list.length) added = await b.files.readPaths(paths);
-    else added = (await Promise.all(list.map(fileToAttachment))).filter((a): a is Attachment => a !== null);
-    if (added.length < list.length) store.showToast("Some files were skipped (images, audio and text only)");
-    store.setAttachments([...store.attachments(), ...added]);
+    try {
+      const list = Array.from(files);
+      const paths = list.map((f) => (f as File & { path?: string }).path).filter((p): p is string => Boolean(p));
+      const b = bridge();
+      let added: Attachment[] = [];
+      if (b && paths.length === list.length) added = await b.files.readPaths(paths);
+      else added = (await Promise.all(list.map(fileToAttachment))).filter((a): a is Attachment => a !== null);
+      if (added.length < list.length) store.showToast("Some files were skipped (images, audio and text only)");
+      store.setAttachments([...store.attachments(), ...added]);
+    } catch (err) {
+      store.showToast(`Could not attach files: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   function onDrop(e: DragEvent): void {

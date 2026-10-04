@@ -7,15 +7,18 @@ export default function Arrangement() {
   const song = store.song;
 
   function move(i: number, dir: -1 | 1): void {
+    const current = song.arrangement[song.currentSectionIndex];
     const arr = [...song.arrangement];
     const j = i + dir;
     if (j < 0 || j >= arr.length) return;
     [arr[i], arr[j]] = [arr[j], arr[i]];
     engine.setArrangement(arr);
+    if (current && arr.includes(current)) engine.jumpToSection(current);
   }
 
   function addSection(): void {
-    const n = song.sections.length + 1;
+    let n = song.sections.length + 1;
+    while (song.sections.some((s) => s.id === `section-${n}`)) n += 1;
     engine.createSection(`section-${n}`, `Section ${n}`, 8);
     if (!song.arrangement.includes(`section-${n}`)) engine.setArrangement([...song.arrangement, `section-${n}`]);
   }

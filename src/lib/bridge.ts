@@ -13,8 +13,11 @@ import { toolContext } from "./songs";
  */
 
 async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; state: Record<string, unknown> }> {
-  if (store.running() !== "idle") throw new Error("OmniSynth is already generating; try again when the current run finishes.");
   await engine.init();
+  if (store.running() !== "idle") throw new Error("OmniSynth is already generating; try again when the current run finishes.");
+  if (!args.prompt.trim() && !(args.attachments?.length)) {
+    throw new Error("A prompt or attachment is required.");
+  }
   if (args.mode === "new") {
     if (engine.tracks.size > 0 && !window.confirm("Start a new song and discard the current one?")) {
       return { summary: "Cancelled.", state: compactState(engine.getState()) };
@@ -25,9 +28,6 @@ async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; st
   store.setPrompt(args.prompt);
   store.setAttachments(args.attachments ?? []);
   store.pushLog({ type: "status", text: `Job from ${args.source ?? "another app"}` });
-  if (!args.prompt.trim() && !(args.attachments?.length)) {
-    throw new Error("A prompt or attachment is required.");
-  }
   await runGenerate();
   const last = [...store.log()].reverse().find((e) => e.type === "done" || e.type === "error" || e.type === "assistant");
   const summary = last?.text ?? "Done.";

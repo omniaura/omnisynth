@@ -66,7 +66,13 @@ try {
   const missing = await rpc("tools/call", { name: "does_not_exist", arguments: {} }, 4);
   check("mcp unknown tool is an error result", missing.result?.isError === true);
 } finally {
-  await fetch(`${base}/tools/remove_track`, { method: "POST", headers: auth, body: JSON.stringify({ id: "bridge-kick" }) }).catch(() => {});
+    try {
+      const response = await fetch(`${base}/tools/remove_track`, { method: "POST", headers: auth, body: JSON.stringify({ id: "bridge-kick" }) });
+      const cleanup = await response.json();
+      check("remove_track", response.ok && cleanup.ok === true, String(cleanup.error ?? response.status));
+    } catch (error) {
+      check("remove_track", false, String(error));
+    }
 }
 
 if (process.argv.includes("--generate")) {

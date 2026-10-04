@@ -38,7 +38,12 @@ export function toolDefinitions(): ChatToolDefinition[] {
   return [
     // --- Transport / song ---
     def("set_bpm", "Set the song tempo.", { bpm: { type: "number", description: "40-300" } }, ["bpm"]),
-    def("set_key", "Set the song key and scale; generators and evolution stay in it.", { key: { type: "string", description: "Root: C, C#, D, Eb, E, F, F#, G, Ab, A, Bb, B" }, scale: { type: "string", enum: SCALE_NAMES } }, ["key", "scale"]),
+    def(
+      "set_key",
+      "Set the song key and scale; generators and evolution stay in it.",
+      { key: { type: "string", description: "Root: C, C#, D, Eb, E, F, F#, G, Ab, A, Bb, B" }, scale: { type: "string", enum: SCALE_NAMES } },
+      ["key", "scale"],
+    ),
     def("set_time_signature", "Set the song's default time signature (sections may override).", { beats: { type: "integer" }, unit: { type: "integer", description: "4 = quarter note, 8 = eighth" } }, ["beats", "unit"]),
 
     // --- Tracks ---
@@ -60,7 +65,16 @@ export function toolDefinitions(): ChatToolDefinition[] {
     def(
       "update_track",
       "Change a track's instrument, pattern, volume, pan or FX chain.",
-      { id: { type: "string" }, instrument: { type: "string", enum: instruments }, volume: { type: "number" }, pan: { type: "number" }, subdivision: { type: "string", enum: ["4n", "8n", "16n", "32n"] }, notes: { type: "string", description: NOTES_DOC }, name: { type: "string" }, fx: { type: "string", description: FX_DOC } },
+      {
+        id: { type: "string" },
+        instrument: { type: "string", enum: instruments },
+        volume: { type: "number" },
+        pan: { type: "number" },
+        subdivision: { type: "string", enum: ["4n", "8n", "16n", "32n"] },
+        notes: { type: "string", description: NOTES_DOC },
+        name: { type: "string" },
+        fx: { type: "string", description: FX_DOC },
+      },
       ["id"],
     ),
     def("remove_track", "Remove a track.", { id: { type: "string" } }, ["id"]),
@@ -72,7 +86,11 @@ export function toolDefinitions(): ChatToolDefinition[] {
       "Design a synth patch (oscillator, envelope, FM/AM, filter, effects chain). Then use its id as an instrument in add_track/update_track. Re-creating an existing id edits that instrument live.",
       {
         id: { type: "string", description: "slug like hoover-lead, rubber-bass, airy-pad" },
-        type: { type: "string", enum: SYNTH_TYPES, description: "Synth (poly, any oscillator), FMSynth, AMSynth, MonoSynth (filter + filter env, glides), DuoSynth, MetalSynth/MembraneSynth/NoiseSynth (percussion), PluckSynth" },
+        type: {
+          type: "string",
+          enum: SYNTH_TYPES,
+          description: "Synth (poly, any oscillator), FMSynth, AMSynth, MonoSynth (filter + filter env, glides), DuoSynth, MetalSynth/MembraneSynth/NoiseSynth (percussion), PluckSynth",
+        },
         oscillator_type: { type: "string", enum: [...OSCILLATOR_TYPES] },
         oscillator_count: { type: "integer", description: "fat* oscillators: voices 2-8" },
         oscillator_spread: { type: "number", description: "fat* oscillators: detune cents 1-100" },
@@ -92,11 +110,20 @@ export function toolDefinitions(): ChatToolDefinition[] {
       },
       ["id", "type"],
     ),
-    def("set_track_fx", "Replace a track's FX chain (after the patch's own effects). Each effect's params become addressable as <track>.fx.<index>.<param>.", { id: { type: "string" }, fx: { type: "string", description: FX_DOC } }, ["id", "fx"]),
+    def(
+      "set_track_fx",
+      "Replace a track's FX chain (after the patch's own effects). Each effect's params become addressable as <track>.fx.<index>.<param>.",
+      { id: { type: "string" }, fx: { type: "string", description: FX_DOC } },
+      ["id", "fx"],
+    ),
     def("set_master_fx", "Set the master bus chain (glue compressor, eq, saturation, reverb, limiter). Params addressable as master.fx.<index>.<param>.", { fx: { type: "string", description: FX_DOC } }, ["fx"]),
 
     // --- Parameter graph ---
-    def("list_params", "List addressable parameter paths with current values and ranges, e.g. acid.synth.filterEnvelope.baseFrequency, acid.fx.0.frequency, pad.volume, master.fx.1.wet, bpm. Use before set_param/add_modulation/automate_param.", { track_id: { type: "string", description: "Limit to one track (omit for everything)" } }),
+    def(
+      "list_params",
+      "List addressable parameter paths with current values and ranges, e.g. acid.synth.filterEnvelope.baseFrequency, acid.fx.0.frequency, pad.volume, master.fx.1.wet, bpm. Use before set_param/add_modulation/automate_param.",
+      { track_id: { type: "string", description: "Limit to one track (omit for everything)" } },
+    ),
     def("set_param", "Set any parameter by path, immediately or ramped.", { path: { type: "string" }, value: { type: "number" }, ramp_seconds: { type: "number" } }, ["path", "value"]),
     def(
       "automate_param",
@@ -121,18 +148,43 @@ export function toolDefinitions(): ChatToolDefinition[] {
       ["id", "source", "target", "depth", "offset"],
     ),
     def("remove_modulation", "Remove a modulation or automation by id.", { id: { type: "string" } }, ["id"]),
-    def("set_macro", "Set a 0..1 macro knob that modulations with {\"type\":\"macro\",\"name\":...} read.", { name: { type: "string" }, value: { type: "number" } }, ["name", "value"]),
+    def("set_macro", 'Set a 0..1 macro knob that modulations with {"type":"macro","name":...} read.', { name: { type: "string" }, value: { type: "number" } }, ["name", "value"]),
 
     // --- Structure ---
     def(
       "create_section",
       "Create a song section (intro, build, drop, break, outro). Starts as copies of current track patterns stretched to `bars`. Optional per-section time signature and tempo (e.g. a 7/8 break, a half-time drop).",
-      { id: { type: "string" }, name: { type: "string" }, bars: { type: "integer", description: "4, 8, 16 or 32" }, beats: { type: "integer", description: "time signature numerator for this section" }, unit: { type: "integer", description: "time signature denominator (4 or 8)" }, bpm: { type: "number", description: "tempo for this section" } },
+      {
+        id: { type: "string" },
+        name: { type: "string" },
+        bars: { type: "integer", description: "4, 8, 16 or 32" },
+        beats: { type: "integer", description: "time signature numerator for this section" },
+        unit: { type: "integer", description: "time signature denominator (4 or 8)" },
+        bpm: { type: "number", description: "tempo for this section" },
+      },
       ["id", "name", "bars"],
     ),
-    def("update_section", "Change a section's bars, time signature or tempo.", { id: { type: "string" }, name: { type: "string" }, bars: { type: "integer" }, beats: { type: "integer" }, unit: { type: "integer" }, bpm: { type: "number" }, clear_overrides: { type: "boolean", description: "drop the section's own meter/tempo" } }, ["id"]),
-    def("set_section_pattern", "Give one track a different pattern inside one section (drop drums hit harder than the intro).", { section_id: { type: "string" }, track_id: { type: "string" }, notes: { type: "string", description: NOTES_DOC } }, ["section_id", "track_id", "notes"]),
-    def("set_arrangement", "Order sections into the song; it loops. e.g. [\"intro\",\"build\",\"drop\",\"break\",\"drop\",\"outro\"]", { sections: { type: "string", description: "JSON array of section ids" } }, ["sections"]),
+    def(
+      "update_section",
+      "Change a section's bars, time signature or tempo.",
+      {
+        id: { type: "string" },
+        name: { type: "string" },
+        bars: { type: "integer" },
+        beats: { type: "integer" },
+        unit: { type: "integer" },
+        bpm: { type: "number" },
+        clear_overrides: { type: "boolean", description: "drop the section's own meter/tempo" },
+      },
+      ["id"],
+    ),
+    def(
+      "set_section_pattern",
+      "Give one track a different pattern inside one section (drop drums hit harder than the intro).",
+      { section_id: { type: "string" }, track_id: { type: "string" }, notes: { type: "string", description: NOTES_DOC } },
+      ["section_id", "track_id", "notes"],
+    ),
+    def("set_arrangement", 'Order sections into the song; it loops. e.g. ["intro","build","drop","break","drop","outro"]', { sections: { type: "string", description: "JSON array of section ids" } }, ["sections"]),
     def("jump_to_section", "Jump playback to a section now.", { section_id: { type: "string" } }, ["section_id"]),
 
     // --- Generative / evolution ---
@@ -194,7 +246,12 @@ export function toolDefinitions(): ChatToolDefinition[] {
       { track_id: { type: "string" }, rules: { type: "string", description: "JSON array of rules (replaces existing rules on the track)" } },
       ["track_id", "rules"],
     ),
-    def("evolve_now", "Run a track's evolution rules once immediately (or a one-off rule passed inline).", { track_id: { type: "string" }, rule: { type: "string", description: "optional JSON rule to run instead of the attached ones" } }, ["track_id"]),
+    def(
+      "evolve_now",
+      "Run a track's evolution rules once immediately (or a one-off rule passed inline).",
+      { track_id: { type: "string" }, rule: { type: "string", description: "optional JSON rule to run instead of the attached ones" } },
+      ["track_id"],
+    ),
     def("clear_evolution", "Remove evolution rules from a track (or all tracks).", { track_id: { type: "string" } }),
 
     // --- Visuals / view ---
@@ -255,7 +312,14 @@ function patchFromArgs(args: Record<string, unknown>): Patch {
   if (type === "MonoSynth" || type === "DuoSynth") {
     if (argNum(args, "filter_frequency") !== undefined || argNum(args, "filter_q") !== undefined) {
       options.filter = { type: "lowpass", rolloff: -24, Q: argNum(args, "filter_q") ?? 2 };
-      options.filterEnvelope = { baseFrequency: argNum(args, "filter_frequency") ?? 400, octaves: argNum(args, "filter_envelope_octaves") ?? 3, attack: 0.02, decay: argNum(args, "filter_envelope_decay") ?? 0.3, sustain: 0.3, release: 0.4 };
+      options.filterEnvelope = {
+        baseFrequency: argNum(args, "filter_frequency") ?? 400,
+        octaves: argNum(args, "filter_envelope_octaves") ?? 3,
+        attack: 0.02,
+        decay: argNum(args, "filter_envelope_decay") ?? 0.3,
+        sustain: 0.3,
+        release: 0.4,
+      };
     }
   }
   const effects = parseFx(args.effects);
@@ -354,7 +418,14 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     }
     case "automate_param": {
       const id = String(args.id ?? `auto-${String(args.path).replace(/\W+/g, "-")}`);
-      engine.addAutomation({ id, target: String(args.path), from: argNum(args, "from") ?? 0, to: argNum(args, "to") ?? 0, bars: Math.max(1, argNum(args, "bars") ?? 4), curve: (args.curve as "linear" | "exponential") ?? "linear" });
+      engine.addAutomation({
+        id,
+        target: String(args.path),
+        from: argNum(args, "from") ?? 0,
+        to: argNum(args, "to") ?? 0,
+        bars: Math.max(1, argNum(args, "bars") ?? 4),
+        curve: (args.curve as "linear" | "exponential") ?? "linear",
+      });
       return `Automation "${id}": ${args.path} ${args.from} → ${args.to} over ${args.bars} bars starting next bar.`;
     }
 
@@ -418,9 +489,9 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     case "evolve_now": {
       const id = String(args.track_id);
       if (args.rule) {
-          const [rule] = parseRules(args.rule);
-          if (!rule) return `Error: could not parse rule for "${id}"`;
-          const out = engine.applyRule(id, rule);
+        const [rule] = parseRules(args.rule);
+        if (!rule) return `Error: could not parse rule for "${id}"`;
+        const out = engine.applyRule(id, rule);
         return `Evolved ${id}: ${describeSteps(out, 32)}`;
       }
       const state = engine.getState().tracks.find((t) => t.id === id);
@@ -480,7 +551,16 @@ function generatePattern(args: Record<string, unknown>): unknown {
       });
     case "lsystem": {
       const rules = args.rules ? (typeof args.rules === "string" ? (JSON.parse(args.rules) as Record<string, string>) : (args.rules as Record<string, string>)) : undefined;
-      return lsys((args.key as string) ?? engine.key, (args.scale as string) ?? engine.scale, args.axiom as string | undefined, rules, num("depth", 2), num("octave", 4), num("length", 32), (args.duration as string) ?? "8n");
+      return lsys(
+        (args.key as string) ?? engine.key,
+        (args.scale as string) ?? engine.scale,
+        args.axiom as string | undefined,
+        rules,
+        num("depth", 2),
+        num("octave", 4),
+        num("length", 32),
+        (args.duration as string) ?? "8n",
+      );
     }
     case "cellular": {
       const steps = Array.from({ length: num("steps", 16) }, () => ({ rest: true }));

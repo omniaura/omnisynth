@@ -2,7 +2,7 @@ import * as Tone from "tone";
 import { DRUM_INSTRUMENTS, INSTRUMENT_PRESETS, MEMBRANE_INSTRUMENTS, MONO_TYPES, type EffectConfig, type Patch, type SynthType } from "./presets";
 import { expandToBars, parseSteps, stepFires, stepsPerBar, type Pattern, type Step, type Subdivision } from "./patterns";
 import { ModMatrix, type Automation, type Modulation, type ParamHandle } from "./modulation";
-import { applyOp, constrain, type EvolveContext, type EvolveRule } from "./evolution";
+import { applyOp, constrain, parseRules, type EvolveContext, type EvolveRule } from "./evolution";
 
 /**
  * The OmniSynth audio engine: Tone.js transport, tracks (step-sequenced
@@ -425,7 +425,12 @@ export class AudioEngine {
       case "gate":
         return new Tone.Gate(num(fx.threshold, -40), num(fx.smoothing, 0.1));
       case "filter":
-        return new Tone.Filter({ frequency: num(fx.frequency, 800), type: (fx.filterType as BiquadFilterType) ?? (fx.mode as BiquadFilterType) ?? "lowpass", Q: num(fx.Q, 1), rolloff: (num(fx.rolloff, -12) as -12 | -24 | -48 | -96) });
+        return new Tone.Filter({
+          frequency: num(fx.frequency, 800),
+          type: (fx.filterType as BiquadFilterType) ?? (fx.mode as BiquadFilterType) ?? "lowpass",
+          Q: num(fx.Q, 1),
+          rolloff: num(fx.rolloff, -12) as -12 | -24 | -48 | -96,
+        });
       case "gain":
         return new Tone.Gain(num(fx.gain, 1));
       default:
@@ -434,7 +439,30 @@ export class AudioEngine {
     }
   }
 
-  static readonly EFFECT_TYPES = ["reverb", "freeverb", "delay", "pingpong", "chorus", "vibrato", "distortion", "saturation", "phaser", "tremolo", "bitcrusher", "autofilter", "autopanner", "autowah", "stereowidener", "pitchshift", "eq", "compressor", "limiter", "gate", "filter", "gain"];
+  static readonly EFFECT_TYPES = [
+    "reverb",
+    "freeverb",
+    "delay",
+    "pingpong",
+    "chorus",
+    "vibrato",
+    "distortion",
+    "saturation",
+    "phaser",
+    "tremolo",
+    "bitcrusher",
+    "autofilter",
+    "autopanner",
+    "autowah",
+    "stereowidener",
+    "pitchshift",
+    "eq",
+    "compressor",
+    "limiter",
+    "gate",
+    "filter",
+    "gain",
+  ];
 
   /** Registers a runtime patch so it can be used as an instrument. */
   createPatch(id: string, patch: Patch): Patch {
@@ -779,11 +807,9 @@ export class AudioEngine {
     this.totalBars++;
     this.currentBar++;
     const section = this.getCurrentSection();
-    const nextSection = section && this.currentBar >= section.bars
-      ? this.sections.get(this.arrangement[(this.currentSectionIndex + 1) % this.arrangement.length])
-      : section;
-      const [nextBeats, nextUnit] = nextSection?.timeSignature ?? this.timeSignature;
-      const secondsPerBar = (60 / (nextSection?.bpm ?? this.bpm)) * nextBeats * (4 / nextUnit);
+    const nextSection = section && this.currentBar >= section.bars ? this.sections.get(this.arrangement[(this.currentSectionIndex + 1) % this.arrangement.length]) : section;
+    const [nextBeats, nextUnit] = nextSection?.timeSignature ?? this.timeSignature;
+    const secondsPerBar = (60 / (nextSection?.bpm ?? this.bpm)) * nextBeats * (4 / nextUnit);
     this.mods.onBar(this.totalBars, secondsPerBar);
     this.mods.setPositions(section ? this.currentBar / section.bars : (this.currentBar % 8) / 8, this.arrangement.length ? this.currentSectionIndex / this.arrangement.length : 0);
     this.runEvolution();
@@ -838,7 +864,8 @@ export class AudioEngine {
     const config: TrackConfig = { ...track.config, ...updates, id, pattern: { ...track.config.pattern, ...(updates.pattern ?? {}) } };
     if (updates.notes) config.pattern = { ...config.pattern, notes: updates.notes };
 
-    const needsRebuild = (updates.instrument && updates.instrument !== track.config.instrument) || (updates.pattern?.subdivision && updates.pattern.subdivision !== track.config.pattern.subdivision) || updates.fx !== undefined;
+    const needsRebuild =
+      (updates.instrument && updates.instrument !== track.config.instrument) || (updates.pattern?.subdivision && updates.pattern.subdivision !== track.config.pattern.subdivision) || updates.fx !== undefined;
     if (needsRebuild) {
       this.rebuildTrack(config);
       const rebuilt = this.tracks.get(id)!;
@@ -1154,18 +1181,18 @@ export class AudioEngine {
       this.addTrack({ ...config, pattern: { subdivision: config.pattern.subdivision ?? "16n", notes: parseSteps(config.pattern.notes) } });
       const track = this.tracks.get(config.id)!;
       if (muted) track.muted = true;
-        if (rules) {
-          try {
-            track.rules = parseRules(rules).map((r) => ({ ...r, fired: 0 }));
-          } catch (err) {
-            console.warn(`skip rules for track ${config.id}:`, (err as Error).message);
-          }
+      if (rules) {
+        try {
+          track.rules = parseRules(rules).map((r) => ({ ...r, fired: 0 }));
+        } catch (err) {
+          console.warn(`skip rules for track ${config.id}:`, (err as Error).message);
         }
+      }
       if (seed) track.seed = seed;
     }
     for (const s of song.sections ?? []) this.sections.set(s.id, { ...s, trackPatterns: { ...s.trackPatterns } });
     this.arrangement = (song.arrangement ?? []).filter((id) => this.sections.has(id));
-      this.setMasterFx(song.masterFx ?? []);
+    this.setMasterFx(song.masterFx ?? []);
     for (const [k, v] of Object.entries(song.macros ?? {})) this.mods.setMacro(k, v);
     for (const m of song.modulations ?? []) {
       try {

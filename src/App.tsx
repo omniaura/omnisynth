@@ -97,11 +97,14 @@ export default function App() {
                 </section>
               </Show>
             </div>
-            <Show when={store.composerOpen()} fallback={
-              <button class="composer-tab" onClick={() => store.setComposerOpen(true)} title="Open composer">
-                ‹ Compose
-              </button>
-            }>
+            <Show
+              when={store.composerOpen()}
+              fallback={
+                <button class="composer-tab" onClick={() => store.setComposerOpen(true)} title="Open composer">
+                  ‹ Compose
+                </button>
+              }
+            >
               <Composer />
             </Show>
           </main>
@@ -127,7 +130,9 @@ export default function App() {
       </Show>
       <Settings />
       <Show when={store.toast()}>
-        <div class="toast" data-testid="toast">{store.toast()}</div>
+        <div class="toast" data-testid="toast">
+          {store.toast()}
+        </div>
       </Show>
     </div>
   );

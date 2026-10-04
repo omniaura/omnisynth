@@ -206,7 +206,7 @@ export function applyOp(steps: Step[], op: EvolveOp, ctx: EvolveContext): Step[]
     case "probability":
       return steps.map((s) => {
         if (s.rest || s.lock) return s;
-        const base = op.prob ?? ((s.prob ?? 1) + (op.delta ?? -0.1));
+        const base = op.prob ?? (s.prob ?? 1) + (op.delta ?? -0.1);
         return { ...s, prob: Math.max(0.1, Math.min(1, base)) };
       });
     case "reverse":
@@ -241,7 +241,10 @@ export function parseRules(input: unknown): EvolveRule[] {
     if (!rule || !Array.isArray(rule.ops) || rule.ops.length === 0) throw new Error(`rule ${i}: ops[] required`);
     return {
       id: rule.id ?? `rule-${i + 1}`,
-      every: (() => { const n = Number(rule.every ?? 4); return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 4; })(),
+      every: (() => {
+        const n = Number(rule.every ?? 4);
+        return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 4;
+      })(),
       prob: rule.prob === undefined ? 1 : Math.max(0, Math.min(1, Number(rule.prob))),
       ops: rule.ops,
       min_density: rule.min_density,

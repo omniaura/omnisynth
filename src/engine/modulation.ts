@@ -122,12 +122,12 @@ export class ModMatrix {
       const shape = mod.source.shape ?? "sine";
       const audioRate = handle.signal && shape !== "sh" && shape !== "random";
       if (audioRate) {
-          // Audio-rate: use the same modulation endpoints as the sampled path.
-          const a = mod.offset + (mod.bipolar ? -Math.abs(mod.depth) : Math.min(0, mod.depth));
-          const b = mod.offset + (mod.bipolar ? Math.abs(mod.depth) : Math.max(0, mod.depth));
-          const lo = Math.max(handle.min, Math.min(handle.max, a));
-          const hi = Math.max(handle.min, Math.min(handle.max, b));
-          const lfo = new Tone.LFO({ frequency: mod.source.rate as Tone.Unit.Frequency, min: lo, max: hi, type: shape as Tone.ToneOscillatorType });
+        // Audio-rate: use the same modulation endpoints as the sampled path.
+        const a = mod.offset + (mod.bipolar ? -Math.abs(mod.depth) : Math.min(0, mod.depth));
+        const b = mod.offset + (mod.bipolar ? Math.abs(mod.depth) : Math.max(0, mod.depth));
+        const lo = Math.max(handle.min, Math.min(handle.max, a));
+        const hi = Math.max(handle.min, Math.min(handle.max, b));
+        const lfo = new Tone.LFO({ frequency: mod.source.rate as Tone.Unit.Frequency, min: lo, max: hi, type: shape as Tone.ToneOscillatorType });
         if (mod.source.phase) lfo.phase = mod.source.phase;
         lfo.connect(handle.signal as unknown as Tone.InputNode);
         lfo.start();
@@ -229,10 +229,14 @@ export class ModMatrix {
           return live.shValue;
         }
         switch (s.shape ?? "sine") {
-          case "sine": return 0.5 + 0.5 * Math.sin(2 * Math.PI * ph);
-          case "triangle": return ph < 0.5 ? 2 * ph : 2 * (1 - ph);
-          case "square": return ph < 0.5 ? 1 : 0;
-          default: return ph;
+          case "sine":
+            return 0.5 + 0.5 * Math.sin(2 * Math.PI * ph);
+          case "triangle":
+            return ph < 0.5 ? 2 * ph : 2 * (1 - ph);
+          case "square":
+            return ph < 0.5 ? 1 : 0;
+          default:
+            return ph;
         }
       }
       case "follower": {

@@ -872,7 +872,8 @@ export class AudioEngine {
       stepCount: t.current.notes.length,
       // The addressable chain: patch effects first, then track effects (<track>.fx.<index>).
       fx: [...(INSTRUMENT_PRESETS[t.config.instrument]?.effects ?? []), ...(t.config.fx ?? [])],
-      rules: t.rules,
+      // Shallow copies so the UI store sees `fired` counters change.
+      rules: t.rules.map((r) => ({ ...r })),
       modCount: this.mods.list().filter((m) => m.target.startsWith(`${t.config.id}.`) || (m.source.type === "follower" && m.source.track === t.config.id)).length,
     };
   }

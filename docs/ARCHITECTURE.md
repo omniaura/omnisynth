@@ -57,13 +57,82 @@ audio-reactive visuals.
 
 ## Tool surface
 
-`set_bpm`, `set_key`, `set_time_signature`, `add_track`, `update_track`,
-`remove_track`, `mute_track`, `create_patch`, `create_section`,
-`set_section_pattern`, `set_arrangement`, `jump_to_section`, `mutate_pattern`,
-`generate_pattern`, `set_visuals`, `play`, `stop`, `save_song`, `list_songs`,
-`load_song`, `get_state`, `done`.
+Transport/song: `set_bpm`, `set_key`, `set_time_signature`
+Tracks: `add_track`, `update_track`, `remove_track`, `mute_track`
+Sound design: `create_patch`, `set_track_fx`, `set_master_fx`
+Parameter graph: `list_params`, `set_param`, `automate_param`
+Modulation: `add_modulation`, `remove_modulation`, `set_macro`
+Structure: `create_section` (optional per-section meter/tempo), `update_section`, `set_section_pattern`, `set_arrangement`, `jump_to_section`
+Generative: `generate_pattern`, `mutate_pattern`, `set_evolution`, `evolve_now`, `clear_evolution`
+Visuals/view: `set_visuals`, `set_view`
+Persistence: `play`, `stop`, `save_song`, `list_songs`, `load_song`, `get_state`, `done`
 
 Patches created mid-run are added to the instrument enum for the next turn.
+
+## Parameter graph
+
+Every node the engine builds is addressable by path, so the agent can patch
+anything into anything (Max/MSP style):
+
+```
+kick.synth.pitchDecay          acid.synth.filterEnvelope.baseFrequency
+acid.fx.2.frequency            pad.volume      hats.pan
+master.fx.1.wet                bpm
+```
+
+`<track>.fx.<i>` indexes the combined chain: the patch's own effects first,
+then the track chain set by `add_track`/`set_track_fx`. Signals/Params
+(filter frequency, wet, feedback, detune, volume…) get audio-rate handles;
+option leaves (PolySynth envelope.attack, oscillator.spread, Reverb.decay)
+go through `node.set()`. Ranges are clamped per parameter name.
+
+## Mod matrix (`engine/modulation.ts`)
+
+`value = offset + depth * source`, clamped to the target range.
+
+| Source | Notes |
+| --- | --- |
+| `lfo` | tempo-synced (`"1m"`, `"4n"`) or Hz; sine/triangle/sawtooth/square connect at audio rate when the target is a Signal, random/S&H tick at 32n |
+| `follower` | envelope follower on a track's output; `invert: true` = sidechain ducking |
+| `random` | smoothed random walk at a rate |
+| `steps` | a mod lane of 0..1 values |
+| `band` | live audio band 0..3 from the visualizer analyser |
+| `macro` | 0..1 knob set with `set_macro` |
+| `bar` / `section` | position within the current section / arrangement |
+
+Automations (`automate_param`) are bar-synced ramps scheduled on the bar
+clock; they are removed when they finish.
+
+## Evolution engine (`engine/evolution.ts`)
+
+Rules live on tracks: `{every, prob, ops[], min_density, max_density,
+max_generations}`. On each bar boundary the engine runs due rules on the
+track's current pattern (and the active section's copy), then applies
+density constraints. Locked steps are never touched.
+
+Ops: `markov` (order-N, temperature), `cellular` (elementary CA on the hit
+mask), `lsystem` (scale-degree rewriting), `genetic` (hill-climb toward
+density/syncopation/similarity), `euclid_morph`, `rotate`, `dropout`,
+`humanize`, `density`, `transpose_scale`, `stutter` (ratchets),
+`probability`, `reverse`, `param_walk` (random-walk any parameter path),
+`reset` (back to the seed).
+
+Steps carry `prob`, `ratchet`, `nudge`, `cond` (`"1:4"`, `"!1:2"`), `slide`
+and `lock`, evaluated per pass in the track loop.
+
+## Sections
+
+Sections own `bars`, optional `timeSignature` and `bpm`, and per-track
+pattern copies. The first track's loop advances the bar clock using the
+active meter; at a section boundary the transport switches meter/tempo and
+patterns swap.
+
+## Views
+
+`studio` (transport, arrangement, tracks, modulation panel, composer) and
+`visualizer` (Hydra full-window; `F`/⛶ toggles, Esc returns, cursor
+auto-hides). The agent can switch with `set_view`.
+
 
 ## Models
 

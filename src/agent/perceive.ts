@@ -1,5 +1,6 @@
 import type { Attachment, ChatMessage, ChatMessageContent, ProviderId } from "../../shared/ipc";
 import { chat, newRequestId } from "./client";
+import { analyzeAudio, describeFeatures } from "../lib/audio-analysis";
 
 /**
  * Stage 1 — Perceive. A cheap multimodal model turns the artist's prompt plus
@@ -25,9 +26,14 @@ export interface Brief {
 
 export const DEFAULT_PERCEIVE_MODEL: Record<string, string> = {
   openrouter: "google/gemini-3.5-flash-lite",
-  ditto: "google/gemini-3.5-flash-lite",
+  // Gemini 3.x is not resolvable on Ditto Router yet; Sonnet reads images and gets audio as analyzed text.
+  ditto: "anthropic/claude-sonnet-5.5",
+  "claude-code": "anthropic/claude-sonnet-5.5",
   ollama: "",
 };
+
+/** Providers whose default models accept raw audio parts. Others get the local analysis text only. */
+const AUDIO_CAPABLE_PROVIDERS = new Set<string>(["openrouter"]);
 
 const BRIEF_SCHEMA = {
   type: "object",
@@ -57,21 +63,30 @@ You receive a prompt and possibly images, audio clips and text. Listen and look 
 - From text/lyrics/notes: constraints, references, story.
 Return ONLY a JSON object matching the schema. Be specific and musical — a producer will build the track from this brief using synthesizers, step sequencers and effects. Prefer concrete synthesis language over adjectives.`;
 
-function attachmentParts(attachments: Attachment[]): { parts: ChatMessageContent[]; textNotes: string[] } {
+async function attachmentParts(attachments: Attachment[], sendAudio: boolean): Promise<{ parts: ChatMessageContent[]; textNotes: string[] }> {
   const parts: ChatMessageContent[] = [];
   const textNotes: string[] = [];
   for (const a of attachments) {
     if (a.kind === "image") parts.push({ type: "image_url", image_url: { url: `data:${a.mime};base64,${a.data}`, detail: "low" } });
     else if (a.kind === "audio") {
-      const format = a.mime.includes("wav") ? "wav" : "mp3";
-      parts.push({ type: "input_audio", input_audio: { data: a.data, format } });
+      try {
+        const features = await analyzeAudio(a.data, a.mime);
+        textNotes.push(describeFeatures(a.name, features));
+      } catch (err) {
+        textNotes.push(`Audio "${a.name}" attached (could not decode locally: ${(err as Error).message}).`);
+      }
+      if (sendAudio) {
+        const format = a.mime.includes("wav") ? "wav" : "mp3";
+        parts.push({ type: "input_audio", input_audio: { data: a.data, format } });
+      }
     } else textNotes.push(`--- ${a.name} ---\n${a.data.slice(0, 6000)}`);
   }
   return { parts, textNotes };
 }
 
 export async function perceive(opts: { provider: ProviderId; model: string; prompt: string; attachments: Attachment[]; signal?: { cancelled: boolean; requestId?: string } }): Promise<Brief> {
-  const { parts, textNotes } = attachmentParts(opts.attachments);
+  const sendAudio = AUDIO_CAPABLE_PROVIDERS.has(opts.provider) && /gemini|jev|omni|audio/i.test(opts.model);
+  const { parts, textNotes } = await attachmentParts(opts.attachments, sendAudio);
   const text = [opts.prompt.trim() || "(no prompt — infer everything from the attachments)", ...textNotes].join("\n\n");
   const content: ChatMessageContent[] = [{ type: "text", text }, ...parts];
   const messages: ChatMessage[] = [
@@ -81,17 +96,34 @@ export async function perceive(opts: { provider: ProviderId; model: string; prom
   const requestId = newRequestId();
   if (opts.signal) opts.signal.requestId = requestId;
 
-  let res;
-  try {
-    res = await chat({ provider: opts.provider, model: opts.model, messages, temperature: 0.4, requestId, response_format: { type: "json_schema", json_schema: { name: "brief", strict: true, schema: BRIEF_SCHEMA } } });
-  } catch (err) {
-    // Some gateways reject json_schema; retry with plain JSON mode and a schema hint.
-    if (!/response_format|json_schema|schema/i.test(String(err))) throw err;
-    messages[0].content += `\n\nJSON schema:\n${JSON.stringify(BRIEF_SCHEMA)}`;
-    res = await chat({ provider: opts.provider, model: opts.model, messages, temperature: 0.4, requestId, response_format: { type: "json_object" } });
+  // Plain JSON with the schema in the prompt is the most portable across
+  // gateways; strict json_schema modes have returned partial objects.
+  messages[0].content += `\n\nJSON schema (every key is required, fill all of them):\n${JSON.stringify(BRIEF_SCHEMA)}`;
+  const ask = async () => {
+    const res = await chat({ provider: opts.provider, model: opts.model, messages, requestId });
+    return typeof res.message.content === "string" ? res.message.content : (res.message.content ?? []).map((c) => (c.type === "text" ? c.text : "")).join("");
+  };
+  let raw = await ask();
+  let brief = parseBrief(raw);
+  const missing = missingFields(brief);
+  if (missing.length) {
+    messages.push({ role: "assistant", content: raw });
+    messages.push({ role: "user", content: `These fields were empty: ${missing.join(", ")}. Return the complete JSON object again with every field filled.` });
+    raw = await ask();
+    brief = parseBrief(raw);
   }
-  const raw = typeof res.message.content === "string" ? res.message.content : (res.message.content ?? []).map((c) => (c.type === "text" ? c.text : "")).join("");
-  return parseBrief(raw);
+  return brief;
+}
+
+function missingFields(b: Brief): string[] {
+  const out: string[] = [];
+  if (!b.mood.length) out.push("mood");
+  if (!b.genre.length) out.push("genre");
+  if (!b.energy_curve) out.push("energy_curve");
+  if (!b.rhythm) out.push("rhythm");
+  if (!b.sound_palette.length) out.push("sound_palette");
+  if (!b.visual_palette.length) out.push("visual_palette");
+  return out;
 }
 
 export function parseBrief(raw: string): Brief {
@@ -105,8 +137,9 @@ export function parseBrief(raw: string): Brief {
     genre: arr(obj.genre),
     references: arr(obj.references),
     bpm: Number(obj.bpm) || 128,
-    key: String(obj.key ?? "C"),
-    scale: String(obj.scale ?? "minor"),
+    // Models sometimes narrate the key ("F minor (Phrygian flavor)"); keep the root only.
+    key: (String(obj.key ?? "C").match(/^[A-Ga-g][#b]?/)?.[0] ?? "C").replace(/^([a-g])/, (m) => m.toUpperCase()),
+    scale: String(obj.scale ?? "minor").toLowerCase().split(/[\s(]/)[0] || "minor",
     energy_curve: String(obj.energy_curve ?? ""),
     sound_palette: arr(obj.sound_palette),
     rhythm: String(obj.rhythm ?? ""),

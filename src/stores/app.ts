@@ -27,6 +27,8 @@ export interface Settings {
   orchestrateProvider: ProviderId;
   orchestrateModel: string;
   skipPerceive: boolean;
+  /** True until the user picks a provider by hand; auto-selection may then change it. */
+  autoProvider: boolean;
 }
 
 function loadSettings(): Settings {
@@ -40,7 +42,7 @@ function loadSettings(): Settings {
 }
 
 function defaultSettings(): Settings {
-  return { perceiveProvider: "ditto", perceiveModel: "", orchestrateProvider: "ditto", orchestrateModel: "", skipPerceive: false };
+  return { perceiveProvider: "ditto", perceiveModel: "", orchestrateProvider: "ditto", orchestrateModel: "", skipPerceive: false, autoProvider: true };
 }
 
 export const store = createRoot(() => {

@@ -14,6 +14,20 @@ export function cancelChat(requestId: string): void {
   inflight.delete(requestId);
 }
 
+function post(provider: Awaited<ReturnType<typeof resolveProvider>>, body: Record<string, unknown>, signal: AbortSignal): Promise<Response> {
+  return fetch(`${provider.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(provider.apiKey ? { Authorization: `Bearer ${provider.apiKey}` } : {}),
+      ...(provider.headers ?? {}),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
 export async function chat(req: ChatRequest): Promise<ChatResponse> {
   const provider = await resolveProvider(req.provider);
   const controller = new AbortController();
@@ -22,8 +36,9 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
   const body: Record<string, unknown> = {
     model: req.model,
     messages: req.messages,
-    temperature: req.temperature ?? 0.7,
   };
+  // Newer reasoning models reject sampling params; only send when asked for.
+  if (req.temperature !== undefined) body.temperature = req.temperature;
   if (req.max_tokens) body.max_tokens = req.max_tokens;
   if (req.tools?.length) {
     body.tools = req.tools;
@@ -33,18 +48,15 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
   if (req.response_format) body.response_format = req.response_format;
 
   try {
-    const res = await fetch(`${provider.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(provider.apiKey ? { Authorization: `Bearer ${provider.apiKey}` } : {}),
-        ...(provider.headers ?? {}),
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    const text = await res.text();
+    let res = await post(provider, body, controller.signal);
+    let text = await res.text();
+    // Retry once without sampling params when the model rejects them.
+    if (!res.ok && /temperature|top_p/i.test(text) && ("temperature" in body || "top_p" in body)) {
+      delete body.temperature;
+      delete body.top_p;
+      res = await post(provider, body, controller.signal);
+      text = await res.text();
+    }
     if (!res.ok) {
       let detail = text;
       try {

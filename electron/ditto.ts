@@ -15,8 +15,8 @@ const API_BASE = (process.env.DITTO_API_BASE || "https://api.heyditto.ai").repla
 const ROUTER_BASE = (process.env.DITTO_ROUTER_BASE || "https://router.heyditto.ai").replace(/\/+$/, "");
 const DEVICE_CLIENT = "omnisynth";
 const ENDPOINT_SLUG_PREFIX = "omnisynth";
-/** Model the OmniSynth endpoint is pinned to by default; the user can change it in the developer console. */
-export const DEFAULT_ENDPOINT_MODEL = "google/gemini-3.8-flash";
+/** Model the OmniSynth endpoint is pinned to by default; passthrough mode lets the app pick per stage. */
+export const DEFAULT_ENDPOINT_MODEL = "anthropic/claude-sonnet-5.5";
 
 const SECRET_ACCOUNT_KEY = "ditto.accountKey";
 const SECRET_ENDPOINT_KEY = "ditto.endpointKey";
@@ -198,8 +198,16 @@ export async function createEndpoint(model = DEFAULT_ENDPOINT_MODEL): Promise<Di
         slug: `${ENDPOINT_SLUG_PREFIX}-${Math.random().toString(36).slice(2, 6)}`,
         model,
         systemPrompt: "",
+        // The app sends its own system prompt and tools; keep the endpoint a plain gateway.
+        modelMode: "passthrough",
         streamGranularity: "final",
         routingMode: "balanced",
+        recallEnabled: false,
+        recordEnabled: false,
+        memoryDepth: 0,
+        tools: [],
+        maxToolRounds: 0,
+        contextCompaction: "off",
       },
     });
     const rec = "endpoint" in created ? created.endpoint : created;

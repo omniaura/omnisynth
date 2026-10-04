@@ -15,15 +15,23 @@ let activeHandle: RunHandle | null = null;
 export async function refreshProviders(): Promise<void> {
   const list = await detectProviders();
   store.setProviders(list);
-  // First launch: pick the first authenticated provider for both stages.
+  // Until the user picks a provider explicitly, follow a preference order so
+  // a better option (Ditto, OpenRouter) wins over whatever happened to be
+  // detected first (e.g. Ollama).
   const auth = list.filter((p) => p.authenticated);
   const s = store.settings;
   const valid = (id: string) => auth.some((p) => p.id === id);
-  if (auth.length && (!valid(s.orchestrateProvider) || !valid(s.perceiveProvider))) {
-    const pick = auth.find((p) => p.id === "ditto") ?? auth.find((p) => p.id === "openrouter") ?? auth[0];
+  if (!auth.length) return;
+  const order: string[] = ["ditto", "openrouter", "claude-code", "codex", "opencode", "ollama", "custom"];
+  const preferred = order.map((id) => auth.find((p) => p.id === id)).find(Boolean) ?? auth[0];
+  if (s.autoProvider) {
+    if (s.orchestrateProvider !== preferred.id || s.perceiveProvider !== preferred.id) {
+      store.updateSettings({ orchestrateProvider: preferred.id, perceiveProvider: preferred.id, orchestrateModel: "", perceiveModel: "" });
+    }
+  } else if (!valid(s.orchestrateProvider) || !valid(s.perceiveProvider)) {
     store.updateSettings({
-      orchestrateProvider: valid(s.orchestrateProvider) ? s.orchestrateProvider : pick.id,
-      perceiveProvider: valid(s.perceiveProvider) ? s.perceiveProvider : pick.id,
+      orchestrateProvider: valid(s.orchestrateProvider) ? s.orchestrateProvider : preferred.id,
+      perceiveProvider: valid(s.perceiveProvider) ? s.perceiveProvider : preferred.id,
     });
   }
 }

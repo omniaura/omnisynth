@@ -30,7 +30,7 @@ const shot = async (name) => {
   await page.screenshot({ path });
   console.log(`screenshot ${path}`);
 };
-const state = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__omnisynthState?.() ?? null)));
+const state = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__omnisynth?.engine.getState() ?? null)));
 
 async function smoke() {
   await page.waitForSelector('[data-testid="app"]', { timeout: 15000 });
@@ -77,6 +77,9 @@ async function generate() {
   const tracks = await page.locator('[data-testid^="track-"]').count();
   const section = await page.locator('[data-testid="current-section"]').textContent().catch(() => null);
   console.log("tracks:", tracks, "section:", section);
+  const st = await state();
+  console.log("brief:", JSON.stringify(await page.evaluate(() => window.__omnisynth?.store.brief())));
+  console.log("state:", JSON.stringify({ bpm: st?.bpm, key: st?.key, scale: st?.scale, tracks: st?.tracks.map((t) => `${t.id}:${t.instrument}:${t.stepCount}`), arrangement: st?.arrangement }));
   await shot("04-generated");
 }
 

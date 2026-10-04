@@ -107,7 +107,7 @@ function DittoCard() {
           </button>
         </Show>
       </div>
-      <p class="muted tiny">Jev isn't on Ditto Router yet; the endpoint pins a Gemini Flash model until it is. Use OpenRouter below for Jev.</p>
+      <p class="muted tiny">Jev isn't on Ditto Router yet, so the endpoint defaults to Claude Sonnet in passthrough mode; pick any router model per stage above. Use OpenRouter for Jev.</p>
     </div>
   );
 }
@@ -179,7 +179,7 @@ function StagePicker(props: { stage: "perceive" | "orchestrate" }) {
       </div>
       <p class="muted tiny">{STAGE_HELP[props.stage]}</p>
       <div class="row">
-        <select value={providerId()} onChange={(e) => store.updateSettings({ [providerKey]: e.currentTarget.value as ProviderId, [modelKey]: "" })} data-testid={`${props.stage}-provider`}>
+        <select value={providerId()} onChange={(e) => store.updateSettings({ [providerKey]: e.currentTarget.value as ProviderId, [modelKey]: "", autoProvider: false })} data-testid={`${props.stage}-provider`}>
           <For each={store.providers()}>
             {(p) => (
               <option value={p.id} disabled={!p.authenticated}>

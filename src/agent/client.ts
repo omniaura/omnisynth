@@ -44,7 +44,7 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${browserKey(req.provider) || "ollama"}` },
-    body: JSON.stringify({ model: req.model, messages: req.messages, tools: req.tools, tool_choice: req.tools ? (req.tool_choice ?? "auto") : undefined, temperature: req.temperature ?? 0.7, response_format: req.response_format }),
+    body: JSON.stringify({ model: req.model, messages: req.messages, tools: req.tools, tool_choice: req.tools ? (req.tool_choice ?? "auto") : undefined, temperature: req.temperature, response_format: req.response_format }),
   });
   if (!res.ok) throw new Error(`${req.provider}: HTTP ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { choices: Array<{ message: ChatResponse["message"]; finish_reason?: string }> };

@@ -11,7 +11,9 @@ import { compactState, executeTool, toolDefinitions, type ToolContext } from "./
 
 export const DEFAULT_ORCHESTRATE_MODEL: Record<string, string> = {
   openrouter: "typesafe/jev-router",
-  ditto: "",
+  // Until Jev is on Ditto Router, Sonnet is the strongest tool-caller reachable there.
+  ditto: "anthropic/claude-sonnet-5.5",
+  "claude-code": "anthropic/claude-sonnet-5.5",
   ollama: "",
 };
 
@@ -95,7 +97,7 @@ export async function orchestrate(opts: {
     const requestId = newRequestId();
     handle.requestId = requestId;
     // Patch ids created mid-run must appear in the instrument enum for the next call.
-    const res = await chat({ provider: opts.provider, model: opts.model, messages, tools: toolDefinitions(), tool_choice: "auto", temperature: 0.7, requestId });
+    const res = await chat({ provider: opts.provider, model: opts.model, messages, tools: toolDefinitions(), tool_choice: "auto", requestId });
     void tools;
     const msg = res.message;
     messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });

@@ -36,6 +36,8 @@ export default function App() {
     // Resume the audio context on first interaction so Play is instant.
     const resume = () => void engine.init();
     window.addEventListener("pointerdown", resume, { once: true });
+    // Debug/QA handle (scripts/qa.mjs reads state through it).
+    (window as unknown as { __omnisynth: unknown }).__omnisynth = { engine, store };
   });
   onCleanup(() => document.removeEventListener("keydown", onKeyDown));
 

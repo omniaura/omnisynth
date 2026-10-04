@@ -129,7 +129,9 @@ async function ollamaProvider(): Promise<ProviderInfo> {
     const res = await fetch("http://127.0.0.1:11434/api/tags", { signal: AbortSignal.timeout(800) });
     if (res.ok) {
       const body = (await res.json()) as { models?: Array<{ name: string }> };
-      const first = body.models?.[0]?.name;
+      // Skip embedding-only models; prefer something that can follow tool-calling prompts.
+      const names = (body.models ?? []).map((m) => m.name).filter((n) => !/embed|bge|minilm|nomic/i.test(n));
+      const first = names.find((n) => /qwen|llama3|mistral|gemma3|gpt-oss|command/i.test(n)) ?? names[0];
       return { id: "ollama", label: "Ollama (local)", baseUrl: OLLAMA_URL, authenticated: true, source: "localhost:11434", defaultModel: first };
     }
   } catch {

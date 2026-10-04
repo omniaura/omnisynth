@@ -431,7 +431,20 @@ export class AudioEngine {
 
     const needsRebuild = (updates.instrument && updates.instrument !== track.config.instrument) || (updates.pattern?.subdivision && updates.pattern.subdivision !== track.config.pattern.subdivision);
     if (needsRebuild) {
+      const sectionPatterns = new Map(
+        [...this.sections].map(([sectionId, section]) => [sectionId, section.trackPatterns[id]] as const),
+      );
       this.rebuildTrack(config);
+      this.sections.forEach((section, sectionId) => {
+        const pattern = sectionPatterns.get(sectionId);
+        if (pattern !== undefined) section.trackPatterns[id] = pattern;
+      });
+      if (updates.notes !== undefined || updates.pattern?.notes !== undefined) {
+        const section = this.getCurrentSection();
+        if (section) section.trackPatterns[id] = config.pattern.notes;
+      }
+      this.applySectionPatterns();
+      this.emitChange();
       return this.trackState(this.tracks.get(id)!);
     }
     track.config = config;
@@ -478,7 +491,7 @@ export class AudioEngine {
   createSection(id: string, name: string, bars: number): Section {
     const section: Section = { id, name, bars, trackPatterns: {} };
     this.tracks.forEach((t, trackId) => {
-      section.trackPatterns[trackId] = expandToBars(t.config.pattern.notes, t.config.pattern.subdivision, bars, this.timeSignature[0]);
+      section.trackPatterns[trackId] = expandToBars(t.current.notes, t.current.subdivision, bars, this.timeSignature[0]);
     });
     this.sections.set(id, section);
     if (this.arrangement.length === 0) this.arrangement.push(id);
@@ -579,9 +592,9 @@ export class AudioEngine {
         throw new Error(`unknown mutation "${mutation}"`);
     }
     const section = this.getCurrentSection();
-    if (section) {
+      track.config.pattern = { ...track.config.pattern, notes: out };
       section.trackPatterns[trackId] = out;
-      track.current = { ...track.config.pattern, notes: out };
+      track.current = track.config.pattern;
     } else {
       track.config.pattern = { ...track.config.pattern, notes: out };
       track.current = track.config.pattern;
@@ -648,6 +661,13 @@ export class AudioEngine {
   }
 
   async importSong(song: SongFile): Promise<void> {
+    const tracks = (song.tracks ?? []).map((t) => {
+      const { muted, ...config } = t;
+      return {
+        config: { ...config, pattern: { subdivision: config.pattern?.subdivision ?? "16n", notes: parseSteps(config.pattern?.notes ?? []) } },
+        muted,
+      };
+    });
     await this.init();
     this.stop();
     [...this.tracks.keys()].forEach((id) => this.removeTrack(id, false));
@@ -664,11 +684,15 @@ export class AudioEngine {
       const { id, ...rest } = patch;
       INSTRUMENT_PRESETS[id] = { ...rest, custom: true };
     }
-    for (const t of song.tracks ?? []) {
-      const { muted, ...config } = t;
-      this.addTrack({ ...config, pattern: { subdivision: config.pattern?.subdivision ?? "16n", notes: parseSteps(config.pattern?.notes ?? []) } });
+    for (const { config, muted } of tracks) {
+      this.addTrack(config);
       if (muted) this.setMute(config.id, true);
     }
+    for (const s of song.sections ?? []) this.sections.set(s.id, { ...s, trackPatterns: { ...s.trackPatterns } });
+    this.arrangement = (song.arrangement ?? []).filter((id) => this.sections.has(id));
+    this.applySectionPatterns();
+    this.emitChange();
+  }
     for (const s of song.sections ?? []) this.sections.set(s.id, { ...s, trackPatterns: { ...s.trackPatterns } });
     this.arrangement = (song.arrangement ?? []).filter((id) => this.sections.has(id));
     this.applySectionPatterns();

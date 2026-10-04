@@ -67,7 +67,7 @@ export async function exportSongFile(): Promise<void> {
   const json = JSON.stringify(file, null, 2);
   const b = bridge();
   if (b) {
-    const path = await b.files.saveJson(`${store.songName() || "song"}.omnisynth.json`, json);
+    const path = await b.files.saveJson(`${(store.songName() || "song").replace(/[\\/]/g, "-")}.omnisynth.json`, json);
     if (path) store.showToast(`Exported to ${path}`);
     return;
   }

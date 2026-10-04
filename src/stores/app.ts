@@ -1,6 +1,6 @@
 import { createSignal, createRoot } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
-import type { Attachment, ProviderId, ProviderInfo } from "../../shared/ipc";
+import type { Attachment, CreditSnapshot, ProviderId, ProviderInfo } from "../../shared/ipc";
 import { engine, type SongState } from "../engine/engine";
 import type { Brief } from "../agent/perceive";
 import type { RunEvent } from "../agent/orchestrate";
@@ -29,6 +29,8 @@ export interface Settings {
   skipPerceive: boolean;
   /** True until the user picks a provider by hand; auto-selection may then change it. */
   autoProvider: boolean;
+  /** How much inference to spend per run; the router balance is the ceiling. */
+  budget: "frugal" | "balanced" | "lavish";
 }
 
 function loadSettings(): Settings {
@@ -42,7 +44,7 @@ function loadSettings(): Settings {
 }
 
 function defaultSettings(): Settings {
-  return { perceiveProvider: "ditto", perceiveModel: "", orchestrateProvider: "ditto", orchestrateModel: "", skipPerceive: false, autoProvider: true };
+  return { perceiveProvider: "ditto", perceiveModel: "", orchestrateProvider: "ditto", orchestrateModel: "", skipPerceive: false, autoProvider: true, budget: "balanced" };
 }
 
 export const store = createRoot(() => {
@@ -63,6 +65,7 @@ export const store = createRoot(() => {
   const [songName, setSongName] = createSignal("Untitled");
   const [toast, setToast] = createSignal<string | null>(null);
   const [view, setView] = createSignal<"studio" | "visualizer">("studio");
+  const [credits, setCredits] = createSignal<CreditSnapshot | null>(null);
   let logId = 0;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -141,6 +144,8 @@ export const store = createRoot(() => {
     showToast,
     view,
     setView,
+    credits,
+    setCredits,
   };
 });
 

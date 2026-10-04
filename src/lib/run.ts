@@ -1,6 +1,6 @@
 import { createRunHandle, orchestrate, DEFAULT_ORCHESTRATE_MODEL, type RunHandle } from "../agent/orchestrate";
 import { perceive, DEFAULT_PERCEIVE_MODEL } from "../agent/perceive";
-import { detectProviders } from "../agent/client";
+import { bridge, detectProviders } from "../agent/client";
 import { engine } from "../engine/engine";
 import { store } from "../stores/app";
 import { toolContext } from "./songs";
@@ -36,15 +36,34 @@ export async function refreshProviders(): Promise<void> {
   }
 }
 
-export function resolveModel(stage: "perceive" | "orchestrate"): { provider: string; model: string } {
+/** Budget tiers: how much the run may spend. The router balance is read live and clamps the tier down. */
+const TIERS = {
+  frugal: { ditto: { perceive: "z-ai/glm-5.3-flash", orchestrate: "z-ai/glm-5.3-flash" }, openrouter: { perceive: "google/gemini-3.5-flash-lite", orchestrate: "google/gemini-3.5-flash-lite" }, maxTurns: 14 },
+  balanced: { ditto: { perceive: "anthropic/claude-sonnet-5.5", orchestrate: "anthropic/claude-sonnet-5.5" }, openrouter: { perceive: "google/gemini-3.5-flash-lite", orchestrate: "typesafe/jev-router" }, maxTurns: 40 },
+  lavish: { ditto: { perceive: "anthropic/claude-sonnet-5.5", orchestrate: "anthropic/claude-opus-5.5" }, openrouter: { perceive: "google/gemini-3.8-flash", orchestrate: "typesafe/jev-router" }, maxTurns: 60 },
+} as const;
+type Tier = keyof typeof TIERS;
+
+/** Clamp the chosen tier by what the signed-in Ditto account can actually pay for. */
+export function effectiveTier(balance: number | null | undefined): Tier {
+  const wanted = store.settings.budget;
+  if (balance === null || balance === undefined) return wanted;
+  if (balance < 1) return "frugal";
+  if (balance < 5 && wanted === "lavish") return "balanced";
+  return wanted;
+}
+
+export function resolveModel(stage: "perceive" | "orchestrate", tier: Tier = store.settings.budget): { provider: string; model: string; maxTurns: number } {
   const s = store.settings;
   const providerId = stage === "perceive" ? s.perceiveProvider : s.orchestrateProvider;
   const explicit = stage === "perceive" ? s.perceiveModel : s.orchestrateModel;
   const info = store.providers().find((p) => p.id === providerId);
   const table = stage === "perceive" ? DEFAULT_PERCEIVE_MODEL : DEFAULT_ORCHESTRATE_MODEL;
+  const tiered = (TIERS[tier] as Record<string, { perceive: string; orchestrate: string } | number>)[providerId];
+  const tierModel = tiered && typeof tiered === "object" ? tiered[stage] : "";
   // Ditto Router endpoints are pinned to a model server-side; the model name can be anything.
-  const fallback = table[providerId] || info?.defaultModel || (providerId === "ditto" ? "default" : "");
-  return { provider: providerId, model: explicit || fallback };
+  const fallback = tierModel || table[providerId] || info?.defaultModel || (providerId === "ditto" ? "default" : "");
+  return { provider: providerId, model: explicit || fallback, maxTurns: TIERS[tier].maxTurns };
 }
 
 export function cancelRun(): void {
@@ -65,11 +84,17 @@ export async function runGenerate(): Promise<void> {
   activeHandle = handle;
 
   try {
+    // Credit-aware: read the router balance and clamp the budget tier before spending.
+    const credits = (await bridge()?.ditto.credits().catch(() => null)) ?? null;
+    const tier = effectiveTier(credits?.balance);
+    store.setCredits(credits ?? null);
+    if (tier !== store.settings.budget) store.pushLog({ type: "status", text: `Balance ${credits?.balance?.toFixed(2)} ${credits?.currency ?? ""} — running ${tier} instead of ${store.settings.budget}` });
+
     let brief = store.brief();
     const wantsPerceive = !store.settings.skipPerceive && (attachments.length > 0 || !brief);
     if (wantsPerceive) {
       store.setRunning("perceiving");
-      const { provider, model } = resolveModel("perceive");
+      const { provider, model } = resolveModel("perceive", tier);
       store.pushLog({ type: "status", text: `Perceiving with ${model || provider}…` });
       brief = await perceive({ provider: provider as never, model, prompt, attachments, signal: handle });
       store.setBrief(brief);
@@ -78,9 +103,10 @@ export async function runGenerate(): Promise<void> {
     }
 
     store.setRunning("orchestrating");
-    const { provider, model } = resolveModel("orchestrate");
-    store.pushLog({ type: "status", text: `Producing with ${model || provider}…` });
-    const summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle });
+    const { provider, model, maxTurns } = resolveModel("orchestrate", tier);
+    store.pushLog({ type: "status", text: `Producing with ${model || provider} (${tier})…` });
+    const summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns });
+    void bridge()?.ditto.credits().then((c) => store.setCredits(c)).catch(() => undefined);
     store.setStatus("");
     store.showToast(summary.length > 160 ? `${summary.slice(0, 160)}…` : summary);
     if (!engine.isPlaying && engine.tracks.size > 0) await engine.play();

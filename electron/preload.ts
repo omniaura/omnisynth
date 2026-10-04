@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { IPC, type DittoDeviceCode, type OmniSynthBridge } from "../shared/ipc";
+import { IPC, type BridgeCall, type BridgeGenerateArgs, type DittoDeviceCode, type OmniSynthBridge } from "../shared/ipc";
 
 const bridge: OmniSynthBridge = {
   platform: process.platform,
@@ -17,6 +17,7 @@ const bridge: OmniSynthBridge = {
   },
   ditto: {
     status: () => ipcRenderer.invoke(IPC.dittoStatus),
+    credits: () => ipcRenderer.invoke(IPC.dittoCredits),
     login: (onCode) => {
       const listener = (_e: unknown, code: DittoDeviceCode) => onCode(code);
       ipcRenderer.on(IPC.dittoLoginCode, listener);
@@ -37,6 +38,23 @@ const bridge: OmniSynthBridge = {
   },
   shell: {
     openExternal: (url) => ipcRenderer.invoke(IPC.shellOpenExternal, url),
+  },
+  bridge: {
+    info: () => ipcRenderer.invoke(IPC.bridgeInfo),
+    onCall: (handler) => {
+      const listener = (_e: unknown, call: BridgeCall) => {
+        handler(call)
+          .then((result) => ipcRenderer.send(IPC.bridgeReply, { id: call.id, ok: true, result }))
+          .catch((err: unknown) => ipcRenderer.send(IPC.bridgeReply, { id: call.id, ok: false, error: (err as Error)?.message ?? String(err) }));
+      };
+      ipcRenderer.on(IPC.bridgeCall, listener);
+      return () => ipcRenderer.removeListener(IPC.bridgeCall, listener);
+    },
+    onGenerateRequest: (handler) => {
+      const listener = (_e: unknown, args: BridgeGenerateArgs) => handler(args);
+      ipcRenderer.on(IPC.bridgeGenerateRequest, listener);
+      return () => ipcRenderer.removeListener(IPC.bridgeGenerateRequest, listener);
+    },
   },
 };
 

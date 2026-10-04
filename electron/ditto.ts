@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import type { DittoDeviceCode, DittoEndpoint, DittoStatus } from "../shared/ipc";
+import type { CreditSnapshot, DittoDeviceCode, DittoEndpoint, DittoStatus } from "../shared/ipc";
 import { deleteSecret, getSecret, setSecret } from "./secrets";
+import { detectDittoDesktop } from "./ditto-desktop";
 
 /**
  * "Sign in with Ditto": the same browser device flow the heyditto CLI uses,
@@ -28,7 +29,7 @@ export function dittoRouterBaseUrl(): string {
 
 interface Session {
   loggedIn: boolean;
-  source?: "app" | "cli" | "env";
+  source?: "app" | "cli" | "env" | "ditto-desktop";
   accountKey?: string;
   endpointKey?: string;
   endpoint?: DittoEndpoint;
@@ -43,7 +44,7 @@ function cliConfig(): { apiKey?: string; defaultEndpoint?: string } | undefined 
   }
 }
 
-/** The account credential: app login first, then DITTO_API_KEY, then the CLI's saved login. */
+/** The account credential: app login, then DITTO_API_KEY, then the heyditto CLI, then Ditto Desktop's linked account. */
 export function readDittoSession(): Session {
   const endpointKey = getSecret(SECRET_ENDPOINT_KEY);
   const endpointRaw = getSecret(SECRET_ENDPOINT);
@@ -53,6 +54,8 @@ export function readDittoSession(): Session {
   if (process.env.DITTO_API_KEY) return { loggedIn: true, source: "env", accountKey: process.env.DITTO_API_KEY, endpointKey, endpoint };
   const cli = cliConfig();
   if (cli?.apiKey) return { loggedIn: true, source: "cli", accountKey: cli.apiKey, endpointKey, endpoint };
+  const desktop = detectDittoDesktop();
+  if (desktop?.account) return { loggedIn: true, source: "ditto-desktop", accountKey: desktop.account.apiKey, endpointKey, endpoint };
   return { loggedIn: false, endpointKey, endpoint };
 }
 
@@ -67,7 +70,35 @@ export function cliInstalled(): boolean {
 
 export function dittoStatus(): DittoStatus {
   const s = readDittoSession();
-  return { loggedIn: s.loggedIn, source: s.source, cliInstalled: cliInstalled(), endpoint: s.endpoint, hasEndpointKey: Boolean(s.endpointKey) };
+  const desktop = detectDittoDesktop();
+  return {
+    loggedIn: s.loggedIn,
+    source: s.source,
+    cliInstalled: cliInstalled(),
+    endpoint: s.endpoint,
+    hasEndpointKey: Boolean(s.endpointKey),
+    dittoDesktop: desktop ? { installed: true, linked: Boolean(desktop.account), appPath: desktop.appPath } : { installed: false, linked: false },
+  };
+}
+
+/** GET /v1/key on the router: the credit snapshot for whichever key powers inference. */
+export async function creditSnapshot(key: string): Promise<CreditSnapshot> {
+  const res = await fetch(`${ROUTER_BASE}/v1/key`, { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`router /v1/key: HTTP ${res.status}`);
+  const body = (await res.json()) as { data?: Record<string, unknown> };
+  const d = body.data ?? {};
+  const num = (v: unknown) => (typeof v === "number" ? v : null);
+  return {
+    balance: num(d.balance),
+    currency: String(d.currency ?? "USD"),
+    billingMode: d.billing_mode as string | undefined,
+    label: d.label as string | undefined,
+    usage: num(d.usage) ?? undefined,
+    reserved: num(d.reserved) ?? undefined,
+    limitRemaining: num(d.limit_remaining),
+    topUpUrl: d.top_up_url as string | undefined,
+    asOf: d.as_of as string | undefined,
+  };
 }
 
 async function api<T>(path: string, init: { method?: string; body?: unknown; auth?: boolean } = {}): Promise<T> {

@@ -775,7 +775,8 @@ export class AudioEngine {
     const nextSection = section && this.currentBar >= section.bars
       ? this.sections.get(this.arrangement[(this.currentSectionIndex + 1) % this.arrangement.length])
       : section;
-    const secondsPerBar = (60 / (nextSection?.bpm ?? this.bpm)) * beats * (4 / unit);
+      const [nextBeats, nextUnit] = nextSection?.timeSignature ?? this.timeSignature;
+      const secondsPerBar = (60 / (nextSection?.bpm ?? this.bpm)) * nextBeats * (4 / nextUnit);
     this.mods.onBar(this.totalBars, secondsPerBar);
     this.mods.setPositions(section ? this.currentBar / section.bars : (this.currentBar % 8) / 8, this.arrangement.length ? this.currentSectionIndex / this.arrangement.length : 0);
     this.runEvolution();
@@ -1145,7 +1146,13 @@ export class AudioEngine {
       this.addTrack({ ...config, pattern: { subdivision: config.pattern.subdivision ?? "16n", notes: parseSteps(config.pattern.notes) } });
       const track = this.tracks.get(config.id)!;
       if (muted) track.muted = true;
-        if (rules) track.rules = parseRules(rules).map((r) => ({ ...r, fired: 0 }));
+        if (rules) {
+          try {
+            track.rules = parseRules(rules).map((r) => ({ ...r, fired: 0 }));
+          } catch (err) {
+            console.warn(`skip rules for track ${config.id}:`, (err as Error).message);
+          }
+        }
       if (seed) track.seed = seed;
     }
     for (const s of song.sections ?? []) this.sections.set(s.id, { ...s, trackPatterns: { ...s.trackPatterns } });

@@ -128,7 +128,7 @@ async function engineScenario() {
     ["add_track", { id: "pad", name: "Pad", instrument: "dark-pad", volume: -14, subdivision: "4n", notes: JSON.stringify([{ note: ["F3", "Ab3", "C4"], duration: "1m" }, "-", "-", "-"]) }],
     ["set_master_fx", { fx: JSON.stringify([{ type: "compressor", threshold: -14, ratio: 3 }, { type: "saturation", order: 3, wet: 0.15 }, { type: "limiter", threshold: -1 }]) }],
     ["list_params", { track_id: "bass" }],
-    ["add_modulation", { id: "wobble", source: JSON.stringify({ type: "lfo", rate: "2m", shape: "sine" }), target: "bass.fx.2.frequency", offset: 900, depth: 700 }],
+    ["add_modulation", { id: "wobble", source: JSON.stringify({ type: "lfo", rate: "2m", shape: "sine" }), target: "bass.fx.0.frequency", offset: 900, depth: 700 }],
     ["add_modulation", { id: "duck", source: JSON.stringify({ type: "follower", track: "kick", invert: true }), target: "pad.volume", offset: -22, depth: 8 }],
     ["add_modulation", { id: "hat-pan", source: JSON.stringify({ type: "random", rate: "8n", smooth: 0.5 }), target: "hats.pan", offset: -0.6, depth: 1.2 }],
     ["automate_param", { path: "master.fx.1.wet", from: 0.05, to: 0.5, bars: 4 }],

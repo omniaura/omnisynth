@@ -229,7 +229,7 @@ export class ModMatrix {
         switch (s.shape ?? "sine") {
           case "sine": return 0.5 + 0.5 * Math.sin(2 * Math.PI * ph);
           case "triangle": return ph < 0.5 ? 2 * ph : 2 * (1 - ph);
-          case "square": return ph < 0.5 ? 0 : 1;
+          case "square": return ph < 0.5 ? 1 : 0;
           default: return ph;
         }
       }

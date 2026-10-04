@@ -1,32 +1,43 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
-
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
+import electron from "vite-plugin-electron/simple";
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
-  plugins: [solid()],
-
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
+export default defineConfig({
+  plugins: [
+    solid(),
+    electron({
+      main: {
+        entry: "electron/main.ts",
+        vite: {
+          build: {
+            outDir: "dist-electron",
+            rollupOptions: { external: ["electron"] },
+          },
+        },
+      },
+      preload: {
+        input: "electron/preload.ts",
+        vite: {
+          build: {
+            outDir: "dist-electron",
+            // CJS: Electron loads ESM preloads asynchronously, so the renderer
+            // could boot before window.omnisynth exists.
+            rollupOptions: { external: ["electron"], output: { format: "cjs", entryFileNames: "preload.cjs" } },
+          },
+        },
+      },
+    }),
+  ],
+  // Electron loads the renderer from file:// in production, so assets must be relative.
+  base: "./",
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
-    watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
   },
-}));
+  build: {
+    target: "es2022",
+    outDir: "dist",
+  },
+});

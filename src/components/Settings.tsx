@@ -1,179 +1,258 @@
-import { createSignal, createEffect, Show, For } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
+import { For, Show, createResource, createSignal } from "solid-js";
+import type { DittoDeviceCode, DittoStatus, ModelInfo, ProviderId } from "../../shared/ipc";
+import { store } from "../stores/app";
+import { bridge, isDesktop, listModels } from "../agent/client";
+import { refreshProviders } from "../lib/run";
 
-interface SettingsProps {
-  isOpen: () => boolean;
-  onClose: () => void;
-  provider: () => "ollama" | "openrouter";
-  setProvider: (provider: "ollama" | "openrouter") => void;
-  model: () => string;
-  setModel: (model: string) => void;
-  apiKey: () => string;
-  setApiKey: (key: string) => void;
-}
+/**
+ * Inference settings: Sign in with Ditto (device flow) and endpoint
+ * provisioning, OpenRouter key, detected local coding agents / Ollama, and the
+ * per-stage model choice (Perceive / Orchestrate).
+ */
 
-// Popular OpenRouter models for code generation
-const OPENROUTER_MODELS = [
-  "anthropic/claude-sonnet-4",
-  "anthropic/claude-3.5-sonnet",
-  "openai/gpt-4o",
-  "openai/gpt-4o-mini",
-  "google/gemini-2.0-flash-exp:free",
-  "deepseek/deepseek-chat",
-  "meta-llama/llama-3.3-70b-instruct",
-  "qwen/qwen-2.5-coder-32b-instruct",
-];
+const STAGE_HELP: Record<"perceive" | "orchestrate", string> = {
+  perceive: "Cheap multimodal model that reads your images/audio/text into a brief. Gemini Flash-Lite class works well.",
+  orchestrate: "The producer agent that calls DAW tools. Jev (typesafe/jev-router) via OpenRouter is the reference; any tool-calling model works.",
+};
 
-export default function Settings(props: SettingsProps) {
-  const [ollamaModels, setOllamaModels] = createSignal<string[]>([]);
-  const [isLoadingModels, setIsLoadingModels] = createSignal(false);
+function DittoCard() {
+  const b = bridge();
+  const [status, { refetch }] = createResource<DittoStatus | undefined>(async () => b?.ditto.status());
+  const [code, setCode] = createSignal<DittoDeviceCode | null>(null);
+  const [busy, setBusy] = createSignal<string | null>(null);
+  const [err, setErr] = createSignal<string | null>(null);
 
-  // Fetch Ollama models
-  createEffect(() => {
-    if (props.isOpen() && props.provider() === "ollama") {
-      fetchOllamaModels();
-    }
-  });
-
-  async function fetchOllamaModels() {
-    setIsLoadingModels(true);
-    try {
-      const models = await invoke<string[]>("list_ollama_models");
-      setOllamaModels(models);
-      // Set first model as default if none selected
-      if (!props.model() && models.length > 0) {
-        props.setModel(models[0]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch Ollama models:", err);
-      setOllamaModels([]);
-    } finally {
-      setIsLoadingModels(false);
-    }
+  async function signIn(): Promise<void> {
+    if (!b) return;
+    setErr(null);
+    setBusy("Waiting for browser approval…");
+    const res = await b.ditto.login((c) => setCode(c));
+    setBusy(null);
+    setCode(null);
+    if (!res.ok) setErr(res.error ?? "login failed");
+    await refetch();
+    await refreshProviders();
   }
 
-  function handleProviderChange(provider: "ollama" | "openrouter") {
-    props.setProvider(provider);
-    // Reset model when switching providers
-    if (provider === "openrouter") {
-      props.setModel(OPENROUTER_MODELS[0]);
-    } else {
-      props.setModel("");
-      fetchOllamaModels();
+  async function createEndpoint(): Promise<void> {
+    if (!b) return;
+    setErr(null);
+    setBusy("Creating your OmniSynth endpoint…");
+    try {
+      await b.ditto.createEndpoint();
+      store.updateSettings({ orchestrateProvider: "ditto", perceiveProvider: "ditto" });
+      store.showToast("Ditto Router endpoint ready");
+    } catch (e) {
+      setErr((e as Error).message);
     }
+    setBusy(null);
+    await refetch();
+    await refreshProviders();
+  }
+
+  async function signOut(): Promise<void> {
+    await b?.ditto.logout();
+    await refetch();
+    await refreshProviders();
   }
 
   return (
-    <Show when={props.isOpen()}>
-      <div class="settings-overlay" onClick={() => props.onClose()}>
-        <div class="settings-modal" onClick={(e) => e.stopPropagation()}>
-          <div class="settings-header">
-            <h2>Settings</h2>
-            <button class="close-btn" onClick={() => props.onClose()}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+    <div class="card" data-testid="ditto-card">
+      <div class="card-head">
+        <h3>Ditto</h3>
+        <Show when={status()?.loggedIn} fallback={<span class="badge">signed out</span>}>
+          <span class="badge ok">signed in{status()?.source === "cli" ? " via heyditto CLI" : ""}</span>
+        </Show>
+      </div>
+      <p class="muted">Use your Ditto account's inference. Sign in opens your browser; then one click creates a Ditto Router endpoint that powers OmniSynth.</p>
+      <Show when={code()}>
+        {(c) => (
+          <div class="device-code">
+            <span>Enter this code in the browser:</span>
+            <strong>{c().user_code}</strong>
+            <button class="btn-ghost small" onClick={() => void b?.shell.openExternal(c().verification_url)}>
+              Open page
             </button>
           </div>
+        )}
+      </Show>
+      <Show when={busy()}>
+        <div class="status-line">
+          <span class="spinner" />
+          {busy()}
+        </div>
+      </Show>
+      <Show when={err()}>
+        <div class="error">{err()}</div>
+      </Show>
+      <div class="row">
+        <Show when={!status()?.loggedIn}>
+          <button class="btn-primary" onClick={() => void signIn()} disabled={Boolean(busy())} data-testid="ditto-signin">
+            Sign in with Ditto
+          </button>
+        </Show>
+        <Show when={status()?.loggedIn}>
+          <Show when={!status()?.hasEndpointKey} fallback={<span class="muted">Endpoint: {status()?.endpoint?.slug} · {status()?.endpoint?.model}</span>}>
+            <button class="btn-primary" onClick={() => void createEndpoint()} disabled={Boolean(busy())} data-testid="ditto-create-endpoint">
+              Create Ditto Router endpoint
+            </button>
+          </Show>
+          <Show when={status()?.hasEndpointKey}>
+            <button class="btn-ghost small" onClick={() => void createEndpoint()} disabled={Boolean(busy())}>
+              Re-mint key
+            </button>
+          </Show>
+          <button class="btn-ghost small" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </Show>
+      </div>
+      <p class="muted tiny">Jev isn't on Ditto Router yet, so the endpoint defaults to Claude Sonnet in passthrough mode; pick any router model per stage above. Use OpenRouter for Jev.</p>
+    </div>
+  );
+}
 
-          <div class="settings-body">
-            {/* Provider Selection */}
-            <div class="setting-group">
-              <label class="setting-label">AI Provider</label>
-              <div class="provider-toggle">
-                <button
-                  class="provider-btn"
-                  classList={{ active: props.provider() === "ollama" }}
-                  onClick={() => handleProviderChange("ollama")}
-                >
-                  <span class="provider-icon">🦙</span>
-                  Ollama (Local)
-                </button>
-                <button
-                  class="provider-btn"
-                  classList={{ active: props.provider() === "openrouter" }}
-                  onClick={() => handleProviderChange("openrouter")}
-                >
-                  <span class="provider-icon">🌐</span>
-                  OpenRouter
-                </button>
-              </div>
-            </div>
+function KeyCard(props: { provider: ProviderId; title: string; placeholder: string; help: string }) {
+  const [val, setVal] = createSignal("");
+  const info = () => store.providers().find((p) => p.id === props.provider);
+  async function save(): Promise<void> {
+    const b = bridge();
+    if (b) await b.providers.setKey(props.provider, val());
+    else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, val());
+    setVal("");
+    await refreshProviders();
+    store.showToast(`${props.title} key saved`);
+  }
+  async function clear(): Promise<void> {
+    const b = bridge();
+    if (b) await b.providers.clearKey(props.provider);
+    else localStorage.removeItem(`omnisynth.browserKey.${props.provider}`);
+    await refreshProviders();
+  }
+  return (
+    <div class="card">
+      <div class="card-head">
+        <h3>{props.title}</h3>
+        <span class={`badge ${info()?.authenticated ? "ok" : ""}`}>{info()?.authenticated ? info()?.source ?? "connected" : "not connected"}</span>
+      </div>
+      <p class="muted">{props.help}</p>
+      <div class="row">
+        <input type="password" placeholder={props.placeholder} value={val()} onInput={(e) => setVal(e.currentTarget.value)} data-testid={`${props.provider}-key`} />
+        <button class="btn-primary small" onClick={() => void save()} disabled={!val().trim()}>
+          Save
+        </button>
+        <Show when={info()?.authenticated}>
+          <button class="btn-ghost small" onClick={() => void clear()}>
+            Clear
+          </button>
+        </Show>
+      </div>
+    </div>
+  );
+}
 
-            {/* Model Selection */}
-            <div class="setting-group">
-              <label class="setting-label">Model</label>
-              <Show
-                when={props.provider() === "ollama"}
-                fallback={
-                  <select
-                    class="setting-select"
-                    value={props.model()}
-                    onChange={(e) => props.setModel(e.currentTarget.value)}
-                  >
-                    <For each={OPENROUTER_MODELS}>
-                      {(model) => <option value={model}>{model}</option>}
-                    </For>
-                  </select>
-                }
-              >
-                <Show
-                  when={!isLoadingModels()}
-                  fallback={<div class="loading-text">Loading models...</div>}
-                >
-                  <Show
-                    when={ollamaModels().length > 0}
-                    fallback={
-                      <div class="warning-text">
-                        No Ollama models found. Make sure Ollama is running and you have models installed.
-                        <br />
-                        <code>ollama pull llama3.2</code>
-                      </div>
-                    }
-                  >
-                    <select
-                      class="setting-select"
-                      value={props.model()}
-                      onChange={(e) => props.setModel(e.currentTarget.value)}
-                    >
-                      <For each={ollamaModels()}>
-                        {(model) => <option value={model}>{model}</option>}
-                      </For>
-                    </select>
-                  </Show>
-                </Show>
+function StagePicker(props: { stage: "perceive" | "orchestrate" }) {
+  const providerKey = props.stage === "perceive" ? "perceiveProvider" : "orchestrateProvider";
+  const modelKey = props.stage === "perceive" ? "perceiveModel" : "orchestrateModel";
+  const providerId = () => store.settings[providerKey];
+  const [models] = createResource(providerId, async (id): Promise<ModelInfo[]> => {
+    try {
+      const list = await listModels(id);
+      if (props.stage === "perceive") return list.filter((m) => !m.inputModalities || m.inputModalities.includes("image") || m.inputModalities.includes("audio"));
+      return list;
+    } catch {
+      return [];
+    }
+  });
+  const authenticated = () => store.providers().filter((p) => p.authenticated);
+
+  return (
+    <div class="stage">
+      <div class="stage-head">
+        <h4>{props.stage === "perceive" ? "1 · Perceive" : "2 · Orchestrate"}</h4>
+        <Show when={props.stage === "perceive"}>
+          <label class="check">
+            <input type="checkbox" checked={store.settings.skipPerceive} onChange={(e) => store.updateSettings({ skipPerceive: e.currentTarget.checked })} />
+            skip (send prompt straight to the producer)
+          </label>
+        </Show>
+      </div>
+      <p class="muted tiny">{STAGE_HELP[props.stage]}</p>
+      <div class="row">
+        <select value={providerId()} onChange={(e) => store.updateSettings({ [providerKey]: e.currentTarget.value as ProviderId, [modelKey]: "", autoProvider: false })} data-testid={`${props.stage}-provider`}>
+          <For each={store.providers()}>
+            {(p) => (
+              <option value={p.id} disabled={!p.authenticated}>
+                {p.label}
+                {p.authenticated ? "" : " (not connected)"}
+              </option>
+            )}
+          </For>
+        </select>
+        <input
+          list={`models-${props.stage}`}
+          placeholder={authenticated().find((p) => p.id === providerId())?.defaultModel || (providerId() === "ditto" ? "endpoint's model" : props.stage === "orchestrate" ? "typesafe/jev-router" : "google/gemini-3.5-flash-lite")}
+          value={store.settings[modelKey]}
+          onChange={(e) => store.updateSettings({ [modelKey]: e.currentTarget.value.trim() })}
+          data-testid={`${props.stage}-model`}
+        />
+        <datalist id={`models-${props.stage}`}>
+          <For each={models() ?? []}>{(m) => <option value={m.id}>{m.name ?? m.id}</option>}</For>
+        </datalist>
+      </div>
+    </div>
+  );
+}
+
+export default function Settings() {
+  const detected = () => store.providers().filter((p) => ["claude-code", "codex", "opencode", "ollama"].includes(p.id));
+  return (
+    <Show when={store.settingsOpen()}>
+      <div class="modal-overlay" onClick={() => store.setSettingsOpen(false)}>
+        <div class="modal" onClick={(e) => e.stopPropagation()} data-testid="settings-modal">
+          <div class="modal-head">
+            <h2>Inference</h2>
+            <button class="btn-icon" onClick={() => store.setSettingsOpen(false)} title="Close" data-testid="settings-close">
+              ×
+            </button>
+          </div>
+          <div class="modal-body">
+            <section>
+              <h3 class="section-title">Pipeline</h3>
+              <StagePicker stage="perceive" />
+              <StagePicker stage="orchestrate" />
+            </section>
+
+            <section>
+              <h3 class="section-title">Providers</h3>
+              <Show when={isDesktop()} fallback={<p class="muted">Running in a browser: keys are kept in localStorage. Use the desktop app for Ditto sign-in and local agent detection.</p>}>
+                <DittoCard />
               </Show>
-            </div>
-
-            {/* API Key (OpenRouter only) */}
-            <Show when={props.provider() === "openrouter"}>
-              <div class="setting-group">
-                <label class="setting-label">
-                  OpenRouter API Key
-                  <a href="https://openrouter.ai/keys" target="_blank" class="key-link">
-                    Get one here
-                  </a>
-                </label>
-                <input
-                  type="password"
-                  class="setting-input"
-                  placeholder="sk-or-..."
-                  value={props.apiKey()}
-                  onInput={(e) => props.setApiKey(e.currentTarget.value)}
-                />
+              <KeyCard provider="openrouter" title="OpenRouter" placeholder="sk-or-…" help="Needed for Jev (typesafe/jev-router) and the full OpenRouter catalog." />
+              <div class="card">
+                <div class="card-head">
+                  <h3>On this computer</h3>
+                  <button class="btn-ghost small" onClick={() => void refreshProviders()}>
+                    Rescan
+                  </button>
+                </div>
+                <p class="muted">Coding agents and local runtimes whose inference OmniSynth can reuse.</p>
+                <ul class="detect-list">
+                  <For each={detected()}>
+                    {(p) => (
+                      <li>
+                        <span class={`dot ${p.authenticated ? "ok" : ""}`} />
+                        <span class="detect-name">{p.label}</span>
+                        <span class="muted tiny">{p.authenticated ? p.source : p.note}</span>
+                      </li>
+                    )}
+                  </For>
+                </ul>
               </div>
-            </Show>
-          </div>
-
-          <div class="settings-footer">
-            <button class="save-btn" onClick={() => props.onClose()}>
-              Done
-            </button>
+            </section>
           </div>
         </div>
       </div>
     </Show>
   );
 }
-

@@ -6,8 +6,11 @@ import type { Attachment, ChatRequest, ProviderId } from "../shared/ipc";
 import { IPC } from "../shared/ipc";
 import { detectProviders } from "./providers";
 import { cancelChat, chat, listModels } from "./inference";
-import { createEndpoint, deviceLogin, dittoStatus, listEndpoints, logout, useEndpoint } from "./ditto";
+import { createEndpoint, creditSnapshot, deviceLogin, dittoStatus, listEndpoints, logout, readDittoSession, useEndpoint } from "./ditto";
 import { deleteSecret, setSecret } from "./secrets";
+import { Bridge } from "./bridge";
+import { loginEnv } from "./providers";
+import type { BridgeReply } from "../shared/ipc";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
@@ -22,6 +25,49 @@ if (process.env.OMNISYNTH_QA_PORT) {
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 let win: BrowserWindow | null = null;
+const bridge = new Bridge({ window: () => win, readAttachments: (paths) => paths.map(readAttachment).filter((a): a is Attachment => a !== null) });
+/** A deep-link job that arrived before the renderer finished loading. */
+let pendingGenerate: { prompt: string; mode?: "new" | "iterate"; source?: string } | null = null;
+
+// omnisynth://generate?prompt=...&mode=new — Ditto Desktop and the shell can open the app with a job.
+const PROTOCOL = "omnisynth";
+if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [process.argv[1]]);
+else app.setAsDefaultProtocolClient(PROTOCOL);
+
+function handleDeepLink(raw: string): void {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== `${PROTOCOL}:`) return;
+    const action = url.hostname || url.pathname.replace(/^\/+/, "");
+    if (action === "generate") {
+      const args = {
+        prompt: url.searchParams.get("prompt") ?? "",
+        mode: (url.searchParams.get("mode") as "new" | "iterate" | null) ?? undefined,
+        source: url.searchParams.get("source") ?? "deep-link",
+      };
+      if (win && !win.isDestroyed() && !win.webContents.isLoading()) win.webContents.send(IPC.bridgeGenerateRequest, args);
+      else pendingGenerate = args;
+      win?.show();
+      win?.focus();
+    }
+  } catch {
+    /* ignore malformed links */
+  }
+}
+
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on("second-instance", (_e, argv) => {
+  const link = argv.find((a) => a.startsWith(`${PROTOCOL}://`));
+  if (link) handleDeepLink(link);
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+app.on("open-url", (e, url) => {
+  e.preventDefault();
+  handleDeepLink(url);
+});
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -51,6 +97,12 @@ function createWindow(): void {
   } else {
     void win.loadFile(join(__dirname, "../dist/index.html"));
   }
+  win.webContents.on("did-finish-load", () => {
+    if (pendingGenerate && win) {
+      win.webContents.send(IPC.bridgeGenerateRequest, pendingGenerate);
+      pendingGenerate = null;
+    }
+  });
   win.on("closed", () => {
     win = null;
   });
@@ -114,6 +166,19 @@ function registerIpc(): void {
   ipcMain.handle(IPC.inferenceModels, (_e, provider: ProviderId) => listModels(provider));
 
   ipcMain.handle(IPC.dittoStatus, () => dittoStatus());
+  ipcMain.handle(IPC.dittoCredits, async () => {
+    const session = readDittoSession();
+    const env = loginEnv();
+    const key = session.endpointKey || (env.ANTHROPIC_BASE_URL?.includes("router.heyditto.ai") ? env.ANTHROPIC_AUTH_TOKEN : undefined) || session.accountKey;
+    if (!key) return null;
+    try {
+      return await creditSnapshot(key);
+    } catch {
+      return null;
+    }
+  });
+  ipcMain.handle(IPC.bridgeInfo, () => bridge.current);
+  ipcMain.on(IPC.bridgeReply, (_e, reply: BridgeReply) => bridge.onReply(reply));
   ipcMain.handle(IPC.dittoLogin, async (e) => {
     try {
       await deviceLogin((code) => {
@@ -158,9 +223,17 @@ function registerIpc(): void {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerIpc();
   createWindow();
+  try {
+    const info = await bridge.start();
+    console.log(`[omnisynth] bridge listening on 127.0.0.1:${info.port}`);
+  } catch (err) {
+    console.warn("[omnisynth] bridge failed to start:", (err as Error).message);
+  }
+  const link = process.argv.find((a) => a.startsWith(`${PROTOCOL}://`));
+  if (link) handleDeepLink(link);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -169,3 +242,4 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+app.on("before-quit", () => bridge.stop());

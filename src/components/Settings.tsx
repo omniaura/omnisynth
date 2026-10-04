@@ -18,6 +18,23 @@ const STAGE_HELP: Record<"perceive" | "orchestrate", string> = {
 function DittoCard() {
   const b = bridge();
   const [status, { refetch }] = createResource<DittoStatus | undefined>(async () => b?.ditto.status());
+  const [credits, { refetch: refetchCredits }] = createResource(async () => {
+    const c = (await b?.ditto.credits()) ?? null;
+    store.setCredits(c);
+    return c;
+  });
+  const sourceLabel = () => {
+    switch (status()?.source) {
+      case "cli":
+        return " via heyditto CLI";
+      case "ditto-desktop":
+        return " via Ditto Desktop";
+      case "env":
+        return " via environment";
+      default:
+        return "";
+    }
+  };
   const [code, setCode] = createSignal<DittoDeviceCode | null>(null);
   const [busy, setBusy] = createSignal<string | null>(null);
   const [err, setErr] = createSignal<string | null>(null);
@@ -61,10 +78,51 @@ function DittoCard() {
       <div class="card-head">
         <h3>Ditto</h3>
         <Show when={status()?.loggedIn} fallback={<span class="badge">signed out</span>}>
-          <span class="badge ok">signed in{status()?.source === "cli" ? " via heyditto CLI" : ""}</span>
+          <span class="badge ok">signed in{sourceLabel()}</span>
         </Show>
       </div>
       <p class="muted">Use your Ditto account's inference. Sign in opens your browser; then one click creates a Ditto Router endpoint that powers OmniSynth.</p>
+      <Show when={credits()}>
+        {(c) => (
+          <div class="credits" data-testid="credits">
+            <span class="credits-balance">
+              {c().balance === null ? "—" : `${c().currency === "USD" ? "$" : ""}${c().balance!.toFixed(2)}`}
+            </span>
+            <span class="muted tiny">
+              {c().billingMode === "byok" ? "your provider keys" : "Ditto credits"}
+              {c().label ? ` · ${c().label}` : ""}
+            </span>
+            <div class="spacer" />
+            <Show when={c().topUpUrl}>
+              <button class="btn-ghost small" onClick={() => void b?.shell.openExternal(c().topUpUrl!)}>
+                Top up
+              </button>
+            </Show>
+            <button class="btn-ghost small" onClick={() => void refetchCredits()} title="Refresh">
+              ↻
+            </button>
+          </div>
+        )}
+      </Show>
+      <div class="row budget-row">
+        <span class="muted tiny">Budget per run</span>
+        <For each={["frugal", "balanced", "lavish"] as const}>
+          {(tier) => (
+            <button class={`chip ${store.settings.budget === tier ? "on" : ""}`} onClick={() => store.updateSettings({ budget: tier })} title={tier === "frugal" ? "Cheapest models, short runs" : tier === "balanced" ? "Sonnet-class, full arrangement" : "Opus/Jev, long evolving runs"}>
+              {tier}
+            </button>
+          )}
+        </For>
+        <span class="muted tiny">balance clamps it down automatically</span>
+      </div>
+      <Show when={status()?.dittoDesktop.installed}>
+        <div class="row">
+          <span class="badge tiny ok">Ditto Desktop detected</span>
+          <span class="muted tiny">
+            {status()?.dittoDesktop.linked ? "its linked Ditto account can power OmniSynth; OmniSynth tools appear in Ditto Desktop chats while this app is open." : "sign in there or here — the session is shared; OmniSynth tools appear in Ditto Desktop chats while this app is open."}
+          </span>
+        </div>
+      </Show>
       <Show when={code()}>
         {(c) => (
           <div class="device-code">

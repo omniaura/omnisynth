@@ -115,11 +115,57 @@ export interface DittoEndpoint {
 
 export interface DittoStatus {
   loggedIn: boolean;
-  source?: "app" | "cli" | "env";
+  source?: "app" | "cli" | "env" | "ditto-desktop";
   cliInstalled: boolean;
   /** The endpoint powering OmniSynth, if one has been created/selected. */
   endpoint?: DittoEndpoint;
   hasEndpointKey: boolean;
+  /** Ditto Desktop on this machine, and whether its linked account is usable here. */
+  dittoDesktop: { installed: boolean; linked: boolean; appPath?: string };
+}
+
+export interface CreditSnapshot {
+  balance: number | null;
+  currency: string;
+  billingMode?: string;
+  label?: string;
+  usage?: number;
+  reserved?: number;
+  limitRemaining?: number | null;
+  topUpUrl?: string;
+  asOf?: string;
+}
+
+export interface BridgeInfo {
+  port: number;
+  token: string;
+  pid: number;
+  version: string;
+  appPath: string;
+  startedAt: string;
+  protocol: 1;
+}
+
+/** A request from the bridge (another local app) that the renderer executes. */
+export interface BridgeCall {
+  id: string;
+  kind: "tool" | "generate" | "state" | "tools";
+  name?: string;
+  args?: unknown;
+}
+
+export interface BridgeReply {
+  id: string;
+  ok: boolean;
+  result?: unknown;
+  error?: string;
+}
+
+export interface BridgeGenerateArgs {
+  prompt: string;
+  attachments?: Attachment[];
+  mode?: "new" | "iterate";
+  source?: string;
 }
 
 export interface OmniSynthBridge {
@@ -138,6 +184,8 @@ export interface OmniSynthBridge {
   };
   ditto: {
     status(): Promise<DittoStatus>;
+    /** Credit snapshot for the key currently powering inference (null when no Ditto key). */
+    credits(): Promise<CreditSnapshot | null>;
     /** Starts the browser device flow; resolves when approved or failed. */
     login(onCode: (code: DittoDeviceCode) => void): Promise<DittoLoginResult>;
     logout(): Promise<void>;
@@ -154,6 +202,13 @@ export interface OmniSynthBridge {
   };
   shell: {
     openExternal(url: string): Promise<void>;
+  };
+  bridge: {
+    info(): Promise<BridgeInfo | null>;
+    /** Subscribe to calls from other local apps; the handler's result is sent back. */
+    onCall(handler: (call: BridgeCall) => Promise<unknown>): () => void;
+    /** omnisynth://generate deep links and other external generate requests. */
+    onGenerateRequest(handler: (args: BridgeGenerateArgs) => void): () => void;
   };
 }
 
@@ -177,4 +232,9 @@ export const IPC = {
   filesSaveJson: "files:saveJson",
   filesOpenJson: "files:openJson",
   shellOpenExternal: "shell:openExternal",
+  dittoCredits: "ditto:credits",
+  bridgeInfo: "bridge:info",
+  bridgeCall: "bridge:call",
+  bridgeReply: "bridge:reply",
+  bridgeGenerateRequest: "bridge:generateRequest",
 } as const;

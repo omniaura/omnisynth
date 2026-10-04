@@ -1,0 +1,76 @@
+import type { BridgeCall, BridgeGenerateArgs } from "../../shared/ipc";
+import { bridge as desktopBridge } from "../agent/client";
+import { compactState, executeTool, toolDefinitions } from "../agent/tools";
+import { engine } from "../engine/engine";
+import { store } from "../stores/app";
+import { runGenerate } from "./run";
+import { toolContext } from "./songs";
+
+/**
+ * Renderer side of the OmniSynth bridge: executes requests that arrive from
+ * other local apps (Ditto Desktop) through the main process, and accepts
+ * omnisynth://generate deep links.
+ */
+
+async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; state: Record<string, unknown> }> {
+  if (store.running() !== "idle") throw new Error("OmniSynth is already generating; try again when the current run finishes.");
+  await engine.init();
+  if (args.mode === "new") {
+    engine.clear();
+    store.setBrief(null);
+  }
+  store.setPrompt(args.prompt);
+  store.setAttachments(args.attachments ?? []);
+  store.pushLog({ type: "status", text: `Job from ${args.source ?? "another app"}` });
+  const done = new Promise<string>((resolve) => {
+    const off = engine.onChange(() => {
+      /* keep the subscription alive so state mirrors; completion is detected below */
+      void off;
+    });
+    const poll = setInterval(() => {
+      if (store.running() === "idle") {
+        clearInterval(poll);
+        off();
+        const last = [...store.log()].reverse().find((e) => e.type === "done" || e.type === "error" || e.type === "assistant");
+        resolve(last?.text ?? "Done.");
+      }
+    }, 400);
+  });
+  await runGenerate();
+  const summary = await done;
+  return { summary, state: compactState(engine.getState()) };
+}
+
+export function installBridgeHandlers(): () => void {
+  const b = desktopBridge();
+  if (!b) return () => {};
+  const offCall = b.bridge.onCall(async (call: BridgeCall) => {
+    switch (call.kind) {
+      case "tools":
+        return toolDefinitions().map((t) => ({ name: t.function.name, description: t.function.description, parameters: t.function.parameters }));
+      case "state":
+        await engine.init();
+        return compactState(engine.getState());
+      case "tool": {
+        await engine.init();
+        const result = await executeTool(call.name ?? "", (call.args as Record<string, unknown>) ?? {}, toolContext);
+        if (result.startsWith("Error")) throw new Error(result.replace(/^Error:?\s*/, ""));
+        store.pushLog({ type: "tool_call", text: `${call.name} (via bridge)`, tool: call.name });
+        store.pushLog({ type: "tool_result", text: result.length > 300 ? `${result.slice(0, 300)}…` : result, tool: call.name, ok: true });
+        return result;
+      }
+      case "generate":
+        return generate(call.args as BridgeGenerateArgs);
+      default:
+        throw new Error(`unknown bridge call ${(call as { kind: string }).kind}`);
+    }
+  });
+  const offGenerate = b.bridge.onGenerateRequest((args) => {
+    store.setComposerOpen(true);
+    void generate(args).catch((err) => store.showToast((err as Error).message));
+  });
+  return () => {
+    offCall();
+    offGenerate();
+  };
+}

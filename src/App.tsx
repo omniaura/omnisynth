@@ -11,6 +11,7 @@ import CodeEditor from "./components/CodeEditor";
 import { engine } from "./engine/engine";
 import { store } from "./stores/app";
 import { refreshProviders } from "./lib/run";
+import { installBridgeHandlers } from "./lib/bridge";
 import { executeTool } from "./agent/tools";
 import { toolContext } from "./lib/songs";
 
@@ -53,6 +54,8 @@ export default function App() {
   }
 
   onMount(() => {
+    const uninstallBridge = installBridgeHandlers();
+    onCleanup(uninstallBridge);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointermove", onPointerMove);
     void refreshProviders();

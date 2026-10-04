@@ -80,18 +80,32 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
   function evaluate(code: string): void {
     if (!hydra || !code.trim()) return;
     const synth = hydra.synth as unknown as HydraSynth;
-    const names = ["osc", "solid", "gradient", "noise", "voronoi", "shape", "src", "o0", "o1", "o2", "o3", "s0", "s1", "s2", "s3", "render", "hush", "speed", "bpm", "width", "height", "mouse", "a", "level"];
-    const values = names.map((n) => {
-      if (n === "a") return audio;
-      if (n === "level") return () => audio.level;
-      const v = synth[n];
-      return typeof v === "function" ? (v as (...args: unknown[]) => unknown).bind(synth) : v;
+    // Sketches run inside `with (scope)`: Hydra sources/outputs are bound to
+    // the synth, while `time`, `bpm`, `a` and `level` resolve live on every
+    // frame so `() => Math.sin(time)` keeps working after evaluation.
+    const live: Record<string, () => unknown> = {
+      time: () => synth.time,
+      bpm: () => synth.bpm,
+      width: () => synth.width,
+      height: () => synth.height,
+      mouse: () => synth.mouse,
+      a: () => audio,
+      level: () => () => audio.level,
+    };
+    const scope = new Proxy(Object.create(null) as Record<string, unknown>, {
+      has: (_t, key) => typeof key === "string" && (key in live || key in synth) && !(key in globalThis),
+      get: (_t, key) => {
+        if (typeof key !== "string") return undefined;
+        if (key in live) return live[key]();
+        const v = synth[key];
+        return typeof v === "function" ? (v as (...args: unknown[]) => unknown).bind(synth) : v;
+      },
     });
     try {
       // Reset outputs so stale chains don't keep rendering under the new sketch.
       synth.hush();
-      const fn = new Function(...names, `"use strict";\n${code}`);
-      fn(...values);
+      const fn = new Function("scope", `with (scope) {\n${code}\n}`);
+      fn(scope);
       props.onError(null);
     } catch (err) {
       console.error("Hydra eval error:", err);

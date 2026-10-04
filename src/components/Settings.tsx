@@ -18,8 +18,8 @@ const STAGE_HELP: Record<"perceive" | "orchestrate", string> = {
 function DittoCard() {
   const b = bridge();
   const [status, { refetch }] = createResource<DittoStatus | undefined>(async () => b?.ditto.status());
-  const [credits, { refetch: refetchCredits }] = createResource(async () => {
-    const c = (await b?.ditto.credits()) ?? null;
+  const [credits, { refetch: refetchCredits }] = createResource(status, async (s) => {
+    const c = s?.loggedIn ? (await b?.ditto.credits()) ?? null : null;
     store.setCredits(c);
     return c;
   });
@@ -86,7 +86,7 @@ function DittoCard() {
         {(c) => (
           <div class="credits" data-testid="credits">
             <span class="credits-balance">
-              {c().balance === null ? "—" : `${c().currency === "USD" ? "$" : ""}${c().balance!.toFixed(2)}`}
+              {c().balance === null ? "—" : `${c().currency === "USD" ? "$" : ""}${c().balance!.toFixed(2)}${c().currency === "USD" ? "" : ` ${c().currency}`}`}
             </span>
             <span class="muted tiny">
               {c().billingMode === "byok" ? "your provider keys" : "Ditto credits"}

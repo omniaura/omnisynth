@@ -119,7 +119,10 @@ export class Bridge {
     this.server?.close();
     this.server = null;
     this.info = null;
-    for (const p of this.pending.values()) clearTimeout(p.timer);
+    for (const [id, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.resolve({ id, ok: false, error: "bridge is shutting down" });
+    }
     this.pending.clear();
   }
 
@@ -151,11 +154,12 @@ export class Bridge {
     res.setHeader("Cache-Control", "no-store");
     // Loopback only; still refuse browser cross-origin use so a web page can't drive the DAW.
     if (req.headers.origin) return json(res, 403, { error: "forbidden_origin" });
+    const auth = req.headers.authorization ?? "";
     if (url.pathname === "/health") {
-      const state = await this.callRenderer({ kind: "state" }, 3000);
+      const authorized = auth === `Bearer ${token}`;
+      const state = authorized ? await this.callRenderer({ kind: "state" }, 3000) : { ok: false };
       return json(res, 200, { ok: true, version: this.info?.version, pid: process.pid, song: state.ok ? state.result : null });
     }
-    const auth = req.headers.authorization ?? "";
     if (auth !== `Bearer ${token}`) return json(res, 401, { error: "invalid_token", message: "Authorization: Bearer <token> from bridge.json is required." });
 
     try {

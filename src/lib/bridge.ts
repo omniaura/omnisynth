@@ -16,28 +16,21 @@ async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; st
   if (store.running() !== "idle") throw new Error("OmniSynth is already generating; try again when the current run finishes.");
   await engine.init();
   if (args.mode === "new") {
+    if (engine.tracks.size > 0 && !window.confirm("Start a new song and discard the current one?")) {
+      return { summary: "Cancelled.", state: compactState(engine.getState()) };
+    }
     engine.clear();
     store.setBrief(null);
   }
   store.setPrompt(args.prompt);
   store.setAttachments(args.attachments ?? []);
   store.pushLog({ type: "status", text: `Job from ${args.source ?? "another app"}` });
-  const done = new Promise<string>((resolve) => {
-    const off = engine.onChange(() => {
-      /* keep the subscription alive so state mirrors; completion is detected below */
-      void off;
-    });
-    const poll = setInterval(() => {
-      if (store.running() === "idle") {
-        clearInterval(poll);
-        off();
-        const last = [...store.log()].reverse().find((e) => e.type === "done" || e.type === "error" || e.type === "assistant");
-        resolve(last?.text ?? "Done.");
-      }
-    }, 400);
-  });
+  if (!args.prompt.trim() && !(args.attachments?.length)) {
+    throw new Error("A prompt or attachment is required.");
+  }
   await runGenerate();
-  const summary = await done;
+  const last = [...store.log()].reverse().find((e) => e.type === "done" || e.type === "error" || e.type === "assistant");
+  const summary = last?.text ?? "Done.";
   return { summary, state: compactState(engine.getState()) };
 }
 
@@ -59,8 +52,13 @@ export function installBridgeHandlers(): () => void {
         store.pushLog({ type: "tool_result", text: result.length > 300 ? `${result.slice(0, 300)}…` : result, tool: call.name, ok: true });
         return result;
       }
-      case "generate":
-        return generate(call.args as BridgeGenerateArgs);
+      case "generate": {
+        const args = call.args;
+        if (args === null || typeof args !== "object" || !("prompt" in args) || typeof args.prompt !== "string") {
+          throw new Error("generate requires a string prompt");
+        }
+        return generate(args as BridgeGenerateArgs);
+      }
       default:
         throw new Error(`unknown bridge call ${(call as { kind: string }).kind}`);
     }

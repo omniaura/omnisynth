@@ -53,7 +53,7 @@ export function detectDittoDesktop(): DittoDesktopInstall | null {
   for (const home of candidateHomes()) {
     const userdata = join(home, "userdata");
     if (!existsSync(userdata)) continue;
-    found = { home, appPath };
+    if (!found) found = { home, appPath };
     const secret = join(userdata, "secrets", "ditto-account.bin");
     if (existsSync(secret)) {
       try {
@@ -63,7 +63,7 @@ export function detectDittoDesktop(): DittoDesktopInstall | null {
         /* unreadable: treat as not linked */
       }
     }
-    break;
+    if (found.account) break;
   }
   if (!found && appPath) found = { home: candidateHomes()[0], appPath };
   return found;

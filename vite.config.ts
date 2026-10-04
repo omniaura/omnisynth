@@ -40,7 +40,7 @@ export default defineConfig({
     target: "es2022",
     outDir: "dist",
     // OMNISYNTH_DEBUG=1 keeps function names so CPU profiles of the app are readable.
-    minify: process.env.OMNISYNTH_DEBUG ? false : "esbuild",
-    sourcemap: Boolean(process.env.OMNISYNTH_DEBUG),
+    minify: process.env.OMNISYNTH_DEBUG === "1" ? false : "esbuild",
+    sourcemap: process.env.OMNISYNTH_DEBUG === "1",
   },
 });

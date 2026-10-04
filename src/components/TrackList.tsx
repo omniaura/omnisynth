@@ -89,8 +89,16 @@ function StepStrip(props: { track: TrackState; onToggle: (i: number) => void }) 
 
   // Redraw when the pattern changes; the playhead is a separate element so it never triggers a redraw.
   createEffect(() => {
-    void props.track.pattern.notes;
-    void props.track.pattern.notes.length;
+    const notes = props.track.pattern.notes;
+    void notes.length;
+    for (let i = 0; i < notes.length; i++) {
+      const s = notes[i];
+      void s.rest;
+      void s.velocity;
+      void s.ratchet;
+      void s.prob;
+      void s.lock;
+    }
     queueMicrotask(draw);
   });
   createEffect(() => {
@@ -101,7 +109,14 @@ function StepStrip(props: { track: TrackState; onToggle: (i: number) => void }) 
     playhead.style.width = `${Math.max(2, canvas.clientWidth / n)}px`;
   });
   onMount(() => {
-    const ro = new ResizeObserver(() => draw());
+    const ro = new ResizeObserver(() => {
+      draw();
+      if (!playhead || !canvas) return;
+      const i = current();
+      const n = props.track.pattern.notes.length || 1;
+      playhead.style.transform = `translateX(${(i / n) * canvas.clientWidth}px)`;
+      playhead.style.width = `${Math.max(2, canvas.clientWidth / n)}px`;
+    });
     if (canvas) ro.observe(canvas);
     onCleanup(() => ro.disconnect());
   });

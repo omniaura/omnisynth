@@ -284,7 +284,7 @@ export class ModMatrix {
       let v = Math.max(0, Math.min(1, raw));
       if (m.curve && m.curve !== 1) v = Math.pow(v, m.curve);
       const value = m.offset + m.depth * (m.bipolar ? v * 2 - 1 : v);
-      if (live.handle === undefined) live.handle = this.resolve(m.target);
+      if (!live.handle) live.handle = this.resolve(m.target);
       const handle = live.handle;
       if (!handle) continue;
       const clamped = Math.max(handle.min, Math.min(handle.max, value));
@@ -297,7 +297,26 @@ export class ModMatrix {
 
   /** Forget cached parameter handles (tracks or master chain were rebuilt). */
   invalidate(): void {
-    for (const live of this.mods.values()) live.handle = undefined;
+    for (const live of this.mods.values()) {
+      live.handle = undefined;
+      live.lfo?.stop();
+      live.lfo?.dispose();
+      live.lfo = undefined;
+      if (live.mod.source.type !== "lfo") continue;
+      const handle = this.resolve(live.mod.target);
+      const shape = live.mod.source.shape ?? "sine";
+      if (!handle?.signal || shape === "sh" || shape === "random") continue;
+      const mod = live.mod;
+      const a = mod.offset + (mod.bipolar ? -Math.abs(mod.depth) : Math.min(0, mod.depth));
+      const b = mod.offset + (mod.bipolar ? Math.abs(mod.depth) : Math.max(0, mod.depth));
+      const lo = Math.max(handle.min, Math.min(handle.max, a));
+      const hi = Math.max(handle.min, Math.min(handle.max, b));
+      const lfo = new Tone.LFO({ frequency: mod.source.rate as Tone.Unit.Frequency, min: lo, max: hi, type: shape as Tone.ToneOscillatorType });
+      if (mod.source.phase) lfo.phase = mod.source.phase;
+      lfo.connect(handle.signal as unknown as Tone.InputNode);
+      lfo.start();
+      live.lfo = lfo;
+    }
   }
 }
 

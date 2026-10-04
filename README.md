@@ -24,6 +24,14 @@ whatever coding agent on your machine already has a gateway configured.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Works with Ditto Desktop
+
+Install [Ditto Desktop](https://github.com/ditto-assistant/ditto-desktop) and
+its agents get `omnisynth_*` tools whenever OmniSynth is open: ask for music in
+any chat and hear it here. Both apps share one Sign in with Ditto, and runs are
+budgeted against your Ditto Router credits. OmniSynth also exposes an MCP
+server any client can mount. See [docs/DITTO_DESKTOP.md](docs/DITTO_DESKTOP.md).
+
 ## Development
 
 ```sh

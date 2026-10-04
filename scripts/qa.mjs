@@ -99,7 +99,22 @@ async function edit() {
   await shot("05-edited");
 }
 
-const scenarios = { smoke, generate, edit, all: async () => { await smoke(); await generate(); await edit(); } };
+async function attach() {
+  // Attach files through the bridge (the native dialog can't be automated) then generate.
+  await page.waitForSelector('[data-testid="app"]', { timeout: 15000 });
+  const paths = args.includes("--files") ? args[args.indexOf("--files") + 1].split(",") : ["/tmp/omnisynth-qa/assets/mood.png", "/tmp/omnisynth-qa/assets/ref.wav", "/tmp/omnisynth-qa/assets/notes.md"];
+  const added = await page.evaluate(async (p) => {
+    const atts = await window.omnisynth.files.readPaths(p);
+    window.__omnisynth.store.setAttachments(atts);
+    return atts.map((a) => `${a.kind}:${a.name}:${a.size}`);
+  }, paths);
+  console.log("attached:", added);
+  await page.waitForSelector(".attachment");
+  await shot("07-attachments");
+  await generate();
+}
+
+const scenarios = { smoke, generate, edit, attach, all: async () => { await smoke(); await generate(); await edit(); } };
 try {
   await scenarios[scenario]();
 } finally {

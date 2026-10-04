@@ -434,11 +434,14 @@ export class AudioEngine {
       const sectionPatterns = new Map(
         [...this.sections].map(([sectionId, section]) => [sectionId, section.trackPatterns[id]] as const),
       );
+      const subdivisionChanged = updates.pattern?.subdivision !== undefined && updates.pattern.subdivision !== track.config.pattern.subdivision;
       this.rebuildTrack(config);
-      this.sections.forEach((section, sectionId) => {
-        const pattern = sectionPatterns.get(sectionId);
-        if (pattern !== undefined) section.trackPatterns[id] = pattern;
-      });
+      if (!subdivisionChanged) {
+        this.sections.forEach((section, sectionId) => {
+          const pattern = sectionPatterns.get(sectionId);
+          if (pattern !== undefined) section.trackPatterns[id] = pattern;
+        });
+      }
       if (updates.notes !== undefined || updates.pattern?.notes !== undefined) {
         const section = this.getCurrentSection();
         if (section) section.trackPatterns[id] = config.pattern.notes;
@@ -592,6 +595,7 @@ export class AudioEngine {
         throw new Error(`unknown mutation "${mutation}"`);
     }
     const section = this.getCurrentSection();
+    if (section) {
       track.config.pattern = { ...track.config.pattern, notes: out };
       section.trackPatterns[trackId] = out;
       track.current = track.config.pattern;

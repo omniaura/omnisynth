@@ -1,207 +1,85 @@
-import { onMount, onCleanup, createEffect } from "solid-js";
+import { Show, createSignal, onCleanup, onMount } from "solid-js";
 import "./App.css";
-
-// Components
 import HydraCanvas from "./components/HydraCanvas";
-import StrudelEditor from "./components/StrudelEditor";
-import HydraEditor from "./components/HydraEditor";
-import Controls from "./components/Controls";
-import AIPrompt from "./components/AIPrompt";
+import Transport from "./components/Transport";
+import TrackList from "./components/TrackList";
+import Arrangement from "./components/Arrangement";
+import Composer from "./components/Composer";
 import Settings from "./components/Settings";
+import CodeEditor from "./components/CodeEditor";
+import { engine } from "./engine/engine";
+import { store } from "./stores/app";
+import { refreshProviders } from "./lib/run";
 
-// Strudel lib
-import {
-  initStrudel,
-  evaluateStrudelCode,
-  hush,
-  getAnalyserNode,
-} from "./lib/strudel";
+export default function App() {
+  const [visualError, setVisualError] = createSignal<string | null>(null);
+  const [draft, setDraft] = createSignal(store.visuals());
 
-// Store
-import {
-  strudelCode,
-  setStrudelCode,
-  hydraCode,
-  setHydraCode,
-  isPlaying,
-  setIsPlaying,
-  isViewMode,
-  setIsViewMode,
-  isSettingsOpen,
-  setIsSettingsOpen,
-  isAIPromptOpen,
-  setIsAIPromptOpen,
-  aiProvider,
-  setAIProvider,
-  aiModel,
-  setAIModel,
-  openrouterApiKey,
-  setOpenrouterApiKey,
-  audioAnalyser,
-  setAudioAnalyser,
-} from "./stores/app";
-
-function App() {
-  let strudelEditorRef: HTMLDivElement | undefined;
-  let hydraEditorRef: HTMLDivElement | undefined;
-
-  onMount(async () => {
-    // Initialize Strudel
-    await initStrudel();
-    setAudioAnalyser(getAnalyserNode());
-  });
-
-  // Keyboard shortcuts
-  function handleKeyDown(e: KeyboardEvent) {
-    // Escape to toggle view mode
-    if (e.key === "Escape") {
-      setIsViewMode(!isViewMode());
+  function onKeyDown(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement;
+    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable;
+    if (e.key === " " && !typing) {
       e.preventDefault();
+      if (engine.isPlaying) engine.stop();
+      else void engine.play();
     }
-    // Space to toggle play/pause (when not in an editor)
-    if (e.key === " " && e.target === document.body) {
-      if (isPlaying()) {
-        handlePause();
-      } else {
-        handlePlay();
-      }
+    if (e.key === "Escape") store.setSettingsOpen(false);
+    if ((e.metaKey || e.ctrlKey) && e.key === ",") {
       e.preventDefault();
+      store.setSettingsOpen(true);
     }
   }
 
   onMount(() => {
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", onKeyDown);
+    void refreshProviders();
+    // Resume the audio context on first interaction so Play is instant.
+    const resume = () => void engine.init();
+    window.addEventListener("pointerdown", resume, { once: true });
   });
-
-  onCleanup(() => {
-    document.removeEventListener("keydown", handleKeyDown);
-    hush();
-  });
-
-  // Handlers
-  async function handlePlay() {
-    try {
-      await evaluateStrudelCode(strudelCode());
-      setIsPlaying(true);
-    } catch (err) {
-      console.error("Failed to play:", err);
-    }
-  }
-
-  function handlePause() {
-    hush();
-    setIsPlaying(false);
-  }
-
-  async function handleEvaluateStrudel() {
-    try {
-      await evaluateStrudelCode(strudelCode());
-      setIsPlaying(true);
-    } catch (err) {
-      console.error("Strudel error:", err);
-    }
-  }
-
-  function handleEvaluateHydra() {
-    // Hydra evaluation is handled by the HydraCanvas component
-    // via createEffect watching hydraCode
-  }
-
-  function handleUndo() {
-    // Get the focused editor and call undo
-    const activeEditor = document.activeElement?.closest(".code-editor");
-    if (activeEditor) {
-      const container = activeEditor.querySelector(".editor-container") as
-        | (HTMLDivElement & { editorRef?: { undo: () => void } })
-        | null;
-      container?.editorRef?.undo();
-    }
-  }
-
-  function handleRedo() {
-    // Get the focused editor and call redo
-    const activeEditor = document.activeElement?.closest(".code-editor");
-    if (activeEditor) {
-      const container = activeEditor.querySelector(".editor-container") as
-        | (HTMLDivElement & { editorRef?: { redo: () => void } })
-        | null;
-      container?.editorRef?.redo();
-    }
-  }
-
-  function handleAIGenerate(strudel: string | null, hydra: string | null) {
-    if (strudel) {
-      setStrudelCode(strudel);
-    }
-    if (hydra) {
-      setHydraCode(hydra);
-    }
-  }
+  onCleanup(() => document.removeEventListener("keydown", onKeyDown));
 
   return (
-    <div class="app" classList={{ "view-mode": isViewMode() }}>
-      {/* Hydra Canvas - always visible */}
-      <HydraCanvas
-        code={hydraCode}
-        audioAnalyser={audioAnalyser}
-        isFullscreen={isViewMode}
-      />
-
-      {/* Code editors - hidden in view mode */}
-      <div class="editors-container" classList={{ hidden: isViewMode() }}>
-        <div class="editor-panel" ref={strudelEditorRef}>
-          <StrudelEditor
-            code={strudelCode}
-            onCodeChange={setStrudelCode}
-            onEvaluate={handleEvaluateStrudel}
-          />
-        </div>
-        <div class="editor-panel" ref={hydraEditorRef}>
-          <HydraEditor
-            code={hydraCode}
-            onCodeChange={setHydraCode}
-            onEvaluate={handleEvaluateHydra}
-          />
-        </div>
+    <div class="app" data-testid="app">
+      <HydraCanvas onError={setVisualError} />
+      <div class="chrome">
+        <Transport />
+        <main class={`workspace ${store.composerOpen() ? "" : "composer-hidden"}`}>
+          <div class="center">
+            <Arrangement />
+            <TrackList />
+            <Show when={store.visualsOpen()}>
+              <section class="panel visuals-panel" data-testid="visuals">
+                <div class="panel-head">
+                  <h2>Visuals</h2>
+                  <span class="muted">Hydra · a.fft[0..3] audio bands</span>
+                  <Show when={visualError()}>
+                    <span class="error tiny">{visualError()}</span>
+                  </Show>
+                  <div class="spacer" />
+                  <button class="btn-primary small" onClick={() => store.setVisuals(draft())}>
+                    Run ⌘↵
+                  </button>
+                </div>
+                <div class="visuals-editor">
+                  <CodeEditor label="hydra" code={store.visuals} onCodeChange={setDraft} onEvaluate={() => store.setVisuals(draft())} />
+                </div>
+              </section>
+            </Show>
+          </div>
+          <Show when={store.composerOpen()} fallback={
+            <button class="composer-tab" onClick={() => store.setComposerOpen(true)} title="Open composer">
+              ‹ Compose
+            </button>
+          }>
+            <Composer />
+          </Show>
+        </main>
       </div>
-
-      {/* Controls - always visible */}
-      <Controls
-        isPlaying={isPlaying}
-        isViewMode={isViewMode}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onToggleViewMode={() => setIsViewMode(!isViewMode())}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAI={() => setIsAIPromptOpen(true)}
-      />
-
-      {/* Modals */}
-      <AIPrompt
-        isOpen={isAIPromptOpen}
-        onClose={() => setIsAIPromptOpen(false)}
-        onGenerate={handleAIGenerate}
-        currentStrudelCode={strudelCode}
-        currentHydraCode={hydraCode}
-        provider={aiProvider}
-        model={aiModel}
-        apiKey={openrouterApiKey}
-      />
-
-      <Settings
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        provider={aiProvider}
-        setProvider={setAIProvider}
-        model={aiModel}
-        setModel={setAIModel}
-        apiKey={openrouterApiKey}
-        setApiKey={setOpenrouterApiKey}
-      />
+      <Settings />
+      <Show when={store.toast()}>
+        <div class="toast" data-testid="toast">{store.toast()}</div>
+      </Show>
     </div>
   );
 }
-
-export default App;

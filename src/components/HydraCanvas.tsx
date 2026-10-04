@@ -1,29 +1,58 @@
 import { onMount, onCleanup, createEffect } from "solid-js";
 import type Hydra from "hydra-synth";
+import { engine } from "../engine/engine";
+import { store } from "../stores/app";
 
-interface HydraCanvasProps {
-  code: () => string;
-  audioAnalyser: () => AnalyserNode | null;
-  isFullscreen: () => boolean;
+/**
+ * Full-window Hydra canvas. Visual code from the store (user- or agent-written)
+ * is evaluated against Hydra's synth with an `a.fft` object we drive from the
+ * engine's AnalyserNode (4 bands, 0..1), so sketches react to the music.
+ */
+
+interface HydraSynth {
+  [fn: string]: unknown;
+  render: (o?: unknown) => void;
+  hush: () => void;
 }
 
-let hydraInstance: Hydra | null = null;
-
-export function getHydraInstance(): Hydra | null {
-  return hydraInstance;
-}
-
-export default function HydraCanvas(props: HydraCanvasProps) {
+export default function HydraCanvas(props: { onError: (msg: string | null) => void }) {
   let canvasRef: HTMLCanvasElement | undefined;
+  let hydra: Hydra | null = null;
+  let raf = 0;
+  const audio = { fft: [0, 0, 0, 0], level: 0 };
+  const bins = new Uint8Array(256);
+
+  function tickAudio(): void {
+    const node = engine.analyserNode;
+    if (node) {
+      node.getByteFrequencyData(bins);
+      // Split the spectrum into 4 log-ish bands: bass, low-mid, high-mid, treble.
+      const ranges: Array<[number, number]> = [
+        [1, 6],
+        [6, 24],
+        [24, 80],
+        [80, 200],
+      ];
+      let total = 0;
+      ranges.forEach(([lo, hi], i) => {
+        let sum = 0;
+        for (let k = lo; k < hi; k++) sum += bins[k];
+        const v = sum / (hi - lo) / 255;
+        audio.fft[i] = audio.fft[i] * 0.6 + v * 0.4;
+        total += v;
+      });
+      audio.level = total / 4;
+    }
+    raf = requestAnimationFrame(tickAudio);
+  }
 
   onMount(async () => {
     if (!canvasRef) return;
-
-    // Dynamic import for hydra-synth
     const HydraModule = await import("hydra-synth");
     const HydraClass = HydraModule.default;
-
-    hydraInstance = new HydraClass({
+    canvasRef.width = canvasRef.clientWidth;
+    canvasRef.height = canvasRef.clientHeight;
+    hydra = new HydraClass({
       canvas: canvasRef,
       detectAudio: false,
       enableStreamCapture: false,
@@ -31,111 +60,46 @@ export default function HydraCanvas(props: HydraCanvasProps) {
       makeGlobal: false,
       numSources: 4,
       numOutputs: 4,
+      precision: "mediump",
     });
-
-    // Set initial resolution
-    const updateResolution = () => {
-      if (hydraInstance && canvasRef) {
-        hydraInstance.setResolution(canvasRef.width, canvasRef.height);
-      }
-    };
-
-    const resizeObserver = new ResizeObserver(() => {
-      if (canvasRef) {
-        canvasRef.width = canvasRef.clientWidth;
-        canvasRef.height = canvasRef.clientHeight;
-        updateResolution();
-      }
+    const ro = new ResizeObserver(() => {
+      if (!canvasRef || !hydra) return;
+      canvasRef.width = canvasRef.clientWidth;
+      canvasRef.height = canvasRef.clientHeight;
+      hydra.setResolution(canvasRef.width, canvasRef.height);
     });
-
-    resizeObserver.observe(canvasRef);
-    updateResolution();
-
+    ro.observe(canvasRef);
+    raf = requestAnimationFrame(tickAudio);
+    evaluate(store.visuals());
     onCleanup(() => {
-      resizeObserver.disconnect();
+      ro.disconnect();
+      cancelAnimationFrame(raf);
     });
   });
 
-  // Execute Hydra code when it changes
-  createEffect(() => {
-    const code = props.code();
-    if (!hydraInstance || !code.trim()) return;
-
+  function evaluate(code: string): void {
+    if (!hydra || !code.trim()) return;
+    const synth = hydra.synth as unknown as HydraSynth;
+    const names = ["osc", "solid", "gradient", "noise", "voronoi", "shape", "src", "o0", "o1", "o2", "o3", "s0", "s1", "s2", "s3", "render", "hush", "speed", "bpm", "width", "height", "mouse", "a", "level"];
+    const values = names.map((n) => {
+      if (n === "a") return audio;
+      if (n === "level") return () => audio.level;
+      const v = synth[n];
+      return typeof v === "function" ? (v as (...args: unknown[]) => unknown).bind(synth) : v;
+    });
     try {
-      // Create a function that has access to Hydra's synth object
-      const synth = hydraInstance.synth;
-      const evalCode = new Function(
-        "osc",
-        "solid",
-        "gradient",
-        "noise",
-        "voronoi",
-        "shape",
-        "src",
-        "o0",
-        "o1",
-        "o2",
-        "o3",
-        "s0",
-        "s1",
-        "s2",
-        "s3",
-        "render",
-        "a",
-        "time",
-        "mouse",
-        code
-      );
-
-      evalCode(
-        synth.osc.bind(synth),
-        synth.solid.bind(synth),
-        synth.gradient.bind(synth),
-        synth.noise.bind(synth),
-        synth.voronoi.bind(synth),
-        synth.shape.bind(synth),
-        synth.src.bind(synth),
-        synth.o0,
-        synth.o1,
-        synth.o2,
-        synth.o3,
-        synth.s0,
-        synth.s1,
-        synth.s2,
-        synth.s3,
-        synth.render.bind(synth),
-        synth.a,
-        synth.time,
-        synth.mouse
-      );
+      // Reset outputs so stale chains don't keep rendering under the new sketch.
+      synth.hush();
+      const fn = new Function(...names, `"use strict";\n${code}`);
+      fn(...values);
+      props.onError(null);
     } catch (err) {
       console.error("Hydra eval error:", err);
+      props.onError((err as Error).message);
     }
-  });
+  }
 
-  // Connect audio analyser to Hydra
-  createEffect(() => {
-    const analyser = props.audioAnalyser();
-    if (!hydraInstance || !analyser) return;
+  createEffect(() => evaluate(store.visuals()));
 
-    // Set up audio reactivity
-    const synth = hydraInstance.synth;
-    if (synth.a) {
-      synth.a.setSmooth(0.4);
-      synth.a.setBins(4);
-      // Connect the analyser
-      synth.a.fft = analyser;
-    }
-  });
-
-  return (
-    <canvas
-      ref={canvasRef}
-      class="hydra-canvas"
-      classList={{
-        fullscreen: props.isFullscreen(),
-      }}
-    />
-  );
+  return <canvas ref={canvasRef} class="hydra-canvas" />;
 }
-

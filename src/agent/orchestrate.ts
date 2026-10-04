@@ -44,6 +44,7 @@ Craft rules:
 - Structure: at least intro, build/drop (or A/B) and a break when the energy curve asks for it; set_section_pattern for variation; set_arrangement to order them. Use per-section time signatures/tempo when the brief calls for odd meters or half-time (e.g. a 7/8 break).
 - Visuals: one set_visuals call using the brief's visual palette and motion, reactive to a.fft and time.
 - Never remove tracks the artist did not ask to remove when iterating on an existing song.
+- Work in batches: at most 8 tool calls per turn, patterns of one or two bars (use sections, generate_pattern and evolution for length instead of writing 64-step arrays). Big single responses get cut off.
 - Keep going until the song is complete, then call done with a short summary for the artist. Do not reply with prose before done.`;
 
 function buildMessages(brief: Brief | null, prompt: string): ChatMessage[] {
@@ -98,18 +99,25 @@ export async function orchestrate(opts: {
     const requestId = newRequestId();
     handle.requestId = requestId;
     // Patch ids created mid-run must appear in the instrument enum for the next call.
-    const res = await chat({ provider: opts.provider, model: opts.model, messages, tools: toolDefinitions(), tool_choice: "auto", requestId });
+    const res = await chat({ provider: opts.provider, model: opts.model, messages, tools: toolDefinitions(), tool_choice: "auto", requestId, max_tokens: 16000 });
     void tools;
     const msg = res.message;
     messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
 
     const calls = msg.tool_calls ?? [];
     if (calls.length === 0) {
-      const text = typeof msg.content === "string" ? msg.content : "";
+      const text = typeof msg.content === "string" ? msg.content : (msg.content ?? []).map((c) => (c.type === "text" ? c.text : "")).join("");
       noToolTurns++;
       if (text.trim()) onEvent({ type: "assistant", text });
+      else onEvent({ type: "status", text: `Model returned no tool calls (finish_reason: ${res.finish_reason ?? "unknown"})` });
+      if (res.finish_reason === "length") {
+        // The response was cut off mid tool-call batch; ask for smaller batches instead of giving up.
+        messages.push({ role: "user", content: "Your previous response was cut off before any tool call completed. Continue, but make at most 6 tool calls per turn and keep patterns to one or two bars." });
+        if (noToolTurns >= 3) return "The model kept running out of output space; try a shorter prompt or a different orchestrator model.";
+        continue;
+      }
       // Nudge models that stop early; give up after two consecutive prose-only turns.
-      if (noToolTurns >= 2 || engine.tracks.size === 0 && turn > 3) return text || "Done.";
+      if (noToolTurns >= 2 || (engine.tracks.size === 0 && turn > 3)) return text || "The model stopped without building anything.";
       messages.push({ role: "user", content: "Continue building with tools. When finished call done." });
       continue;
     }

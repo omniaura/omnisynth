@@ -105,7 +105,7 @@ export default function Transport() {
         </button>
         <button class={`provider-pill ${provider()?.authenticated ? "ok" : "warn"}`} onClick={() => store.setSettingsOpen(true)} title="Inference settings" data-testid="provider-pill">
           <span class="dot" />
-          {provider()?.authenticated ? provider()!.label : "Connect inference"}
+          <span class="pill-label">{provider()?.authenticated ? provider()!.label : "Connect inference"}</span>
         </button>
         <button class="btn-icon" onClick={() => store.setSettingsOpen(true)} title="Settings" data-testid="settings">
           <Icon.gear />

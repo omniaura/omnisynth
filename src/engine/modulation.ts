@@ -284,7 +284,7 @@ export class ModMatrix {
       let v = Math.max(0, Math.min(1, raw));
       if (m.curve && m.curve !== 1) v = Math.pow(v, m.curve);
       const value = m.offset + m.depth * (m.bipolar ? v * 2 - 1 : v);
-      if (!live.handle) live.handle = this.resolve(m.target);
+      if (live.handle === undefined) live.handle = this.resolve(m.target);
       const handle = live.handle;
       if (!handle) continue;
       const clamped = Math.max(handle.min, Math.min(handle.max, value));
@@ -302,6 +302,23 @@ export class ModMatrix {
       live.lfo?.stop();
       live.lfo?.dispose();
       live.lfo = undefined;
+      live.follower?.dispose();
+      live.followerGain?.dispose();
+      live.follower = undefined;
+      live.followerGain = undefined;
+      if (live.mod.source.type === "follower") {
+        const src = this.followerSource(live.mod.source.track);
+        const s = live.mod.source;
+        if (src) {
+          const follower = new Tone.Meter({ normalRange: true, smoothing: Math.max(0.05, Math.min(0.98, 1 - 1 / (1 + ((s.attack ?? 0.01) + (s.release ?? 0.15)) * 20))) });
+          const tap = new Tone.Gain(1);
+          src.connect(tap);
+          tap.connect(follower);
+          live.follower = follower;
+          live.followerGain = tap;
+        }
+        continue;
+      }
       if (live.mod.source.type !== "lfo") continue;
       const handle = this.resolve(live.mod.target);
       const shape = live.mod.source.shape ?? "sine";

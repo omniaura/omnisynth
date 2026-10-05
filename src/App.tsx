@@ -12,6 +12,7 @@ import { engine } from "./engine/engine";
 import { store } from "./stores/app";
 import { refreshProviders } from "./lib/run";
 import { installBridgeHandlers } from "./lib/bridge";
+import { registerLibraryPatches } from "./library";
 import { executeTool } from "./agent/tools";
 import { toolContext } from "./lib/songs";
 
@@ -54,6 +55,7 @@ export default function App() {
   }
 
   onMount(() => {
+    registerLibraryPatches();
     const uninstallBridge = installBridgeHandlers();
     onCleanup(uninstallBridge);
     document.addEventListener("keydown", onKeyDown);

@@ -22,6 +22,7 @@ export function usePatch(id: string, as?: string): { instrument: string; patch: 
   const patch = PATCH_BY_ID[id];
   if (!patch) throw new Error(`no library patch "${id}". Try list_library kind=patch query=…`);
   const instrument = as ?? id;
+  if (as && as !== id && INSTRUMENT_PRESETS[as]) throw new Error(`instrument "${as}" already exists; choose a new id`);
   engine.createPatch(instrument, { type: patch.type, options: patch.options, effects: patch.effects, name: instrument });
   return { instrument, patch };
 }
@@ -47,19 +48,17 @@ export function usePattern(id: string, opts: UsePatternOptions = {}): { pattern:
     const scale = opts.scale ?? engine.scale;
     const octave = opts.octave ?? 2;
     const notes = scaleNotes(key, scale, octave - 1, octave + 2);
-    const base = 7; // index of degree 1 at `octave`
+    const base = scaleNotes(key, scale, octave - 1, octave - 1).length; // index of degree 1 at `octave`
     const chars = pattern.grid.replace(/\s+/g, "").split("");
-    let d = 0;
     steps = chars.map((c, i) => {
-      if (c === ".") return { rest: true };
-      const degree = pattern.degrees![d++ % pattern.degrees!.length];
-      if (!degree) return { rest: true };
+      const degree = pattern.degrees![i % pattern.degrees!.length];
+      if (c === "." || !degree) return { rest: true };
       const note = notes[Math.max(0, Math.min(notes.length - 1, base + degree - 1))];
-      const s = gridToSteps(c, { note, duration: pattern.subdivision === "8n" ? "8n" : "16n", swingMs: swing })[0];
+      const s = gridToSteps(c, { note, duration: pattern.subdivision === "4n" ? "4n" : pattern.subdivision === "8n" ? "8n" : pattern.subdivision === "32n" ? "32n" : "16n", swingMs: swing })[0];
       return { ...s, nudge: swing && i % 2 === 1 ? swing : s.nudge };
     });
   } else {
-    steps = gridToSteps(pattern.grid, { swingMs: swing, duration: pattern.subdivision === "32n" ? "32n" : "16n" });
+    steps = gridToSteps(pattern.grid, { swingMs: swing, duration: pattern.subdivision === "4n" ? "4n" : pattern.subdivision === "8n" ? "8n" : pattern.subdivision === "32n" ? "32n" : "16n" });
   }
   const bars = Math.max(1, opts.bars ?? 1);
   const out: Step[] = [];
@@ -96,7 +95,7 @@ export function useProgression(id: string, opts: { key?: string; mode?: string; 
   const beats = prog.beatsPerChord;
   for (const c of chords) {
     for (let b = 0; b < beats; b++) {
-      chordSteps.push(b === 0 ? { note: c.notes, duration: `${beats}n`.replace(/^(\d+)n$/, (_, n) => (Number(n) === 4 ? "1m" : Number(n) === 8 ? "2m" : "1m")), velocity: 0.75 } : { rest: true });
+      chordSteps.push(b === 0 ? { note: c.notes, duration: beats === 2 ? "2n" : beats === 4 ? "1m" : beats === 8 ? "2m" : "1m", velocity: 0.75 } : { rest: true });
       bassSteps.push(b % 2 === 0 ? { note: c.bass, duration: "4n", velocity: b === 0 ? 0.9 : 0.7 } : { rest: true });
     }
   }

@@ -450,7 +450,7 @@ export const PATCH_LIBRARY: LibraryPatch[] = [
     role: "lead",
     tags: ["rave", "hoover", "hardcore", "alpha-juno", "mentasm"],
     reference: "Alpha Juno 'What The' hoover: PWM saw, pitch sweep in, chorus",
-    type: "Synth",
+    type: "MonoSynth",
     options: { oscillator: { type: "fatsawtooth", count: 3, spread: 35 }, envelope: env(0.02, 0.3, 0.8, 0.4), portamento: 0.12 },
     effects: [{ type: "chorus", frequency: 1.4, depth: 0.8, wet: 0.6 }, { type: "filter", frequency: 4000, Q: 1 }, { type: "distortion", distortion: 0.15, wet: 0.3 }],
     mix: { volume: -12, octaveLow: 2, octaveHigh: 4, note: "Use slide 0.12 into stabs for the sweep" },

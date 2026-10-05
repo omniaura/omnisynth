@@ -76,4 +76,4 @@ for (const k of ["patches", "patterns", "progressions", "templates"]) {
 console.log("progression sample:", report.progressions.slice(0, 3).map((p) => `${p.id}: ${p.first}`).join(" | "));
 if (errors.length) { console.log("--- page errors ---"); for (const e of errors.slice(0, 15)) console.log(e.slice(0, 200)); }
 await browser.close();
-process.exit(bad(report.patches).length + bad(report.patterns).length + bad(report.progressions).length + bad(report.templates).length ? 1 : 0);
+process.exit(bad(report.patches).length + bad(report.patterns).length + bad(report.progressions).length + bad(report.templates).length + errors.length ? 1 : 0);

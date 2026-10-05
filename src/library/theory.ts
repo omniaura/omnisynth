@@ -53,7 +53,8 @@ export function parseNumeral(n: string): ParsedNumeral {
   const m = n.match(/^(♭|b)?([ivIV]+)(°|o)?(.*)$/);
   if (!m) throw new Error(`bad numeral "${n}"`);
   const [, flat, roman, dim, ext] = m;
-  const degree = NUMERAL_DEGREE[roman.toLowerCase()] ?? 0;
+  const degree = NUMERAL_DEGREE[roman.toLowerCase()];
+  if (degree === undefined) throw new Error(`bad numeral "${n}"`);
   const quality = dim ? "dim" : roman === roman.toUpperCase() ? "major" : "minor";
   return { degree, quality, ext: ext ?? "", flat: Boolean(flat) };
 }

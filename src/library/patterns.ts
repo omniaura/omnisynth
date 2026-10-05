@@ -73,7 +73,7 @@ export const PATTERN_LIBRARY: LibraryPattern[] = [
   { id: "techno-ride-16", role: "perc", genre: ["techno"], bpm: [128, 140], subdivision: "16n", grid: "Xgxgxgxgxgxgxgxg" },
   { id: "techno-perc-3-step", role: "perc", genre: ["techno", "hypnotic"], bpm: [128, 140], subdivision: "16n", grid: "x..x..x..x..x..x", notes: "3-step cycle against 4/4 (polymeter), hypnotic" },
   { id: "techno-perc-5-step", role: "perc", genre: ["techno", "hypnotic", "idm"], bpm: [125, 140], subdivision: "16n", grid: "x....x....x....x", notes: "5-step cycle; pair with 3-step for a 15-step phase" },
-  { id: "acid-bass-16", role: "bass", genre: ["acid", "techno", "acid-house"], bpm: [120, 135], subdivision: "16n", grid: "X.x.X.xxX.x.X.x.", degrees: [1, 0, 1, 0, 8, 0, 1, 3, 1, 0, 1, 0, 5, 0, 8, 0], notes: "303: accents on X, slide every 3rd/4th note, octave jumps; velocity 0.6 normal / 1.0 accent" },
+  { id: "acid-bass-16", role: "bass", genre: ["acid", "techno", "acid-house"], bpm: [120, 135], subdivision: "16n", grid: "X.x.X.xxX.x.X.x.", degrees: [1, 1, 8, 1, 3, 1, 1, 5, 8], notes: "303: accents on X, slide every 3rd/4th note, octave jumps; velocity 0.6 normal / 1.0 accent" },
   { id: "techno-stab-dub", role: "chords", genre: ["dub-techno", "techno"], bpm: [120, 130], subdivision: "16n", grid: "...x.......x....", notes: "Dub chord every other offbeat, long delay feedback" },
 
   // ── TRANCE (136-142) ──
@@ -104,7 +104,7 @@ export const PATTERN_LIBRARY: LibraryPattern[] = [
   { id: "trap-snare-3", role: "snare", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "........X......." },
   { id: "trap-hat-rolls", role: "hat", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "x.x.x.x.x.rrx.xr", notes: "8ths with 32nd rolls (ratchet) before the snare / at phrase ends; crescendo velocity" },
   { id: "drill-kick-slide", role: "kick", genre: ["drill", "uk-drill"], bpm: [138, 146], subdivision: "16n", grid: "X.........x.....", notes: "808 on 1 and the and-a of 3 (step 11); slide between notes" },
-  { id: "trap-808-notes", role: "bass", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "X......x..X.....", degrees: [1, 0, 0, 0, 0, 0, 0, 5, 0, 0, 1, 0, 0, 0, 0, 0], notes: "808 follows the kick pattern; slide into the 5th" },
+  { id: "trap-808-notes", role: "bass", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "X......x..X.....", degrees: [1, 5, 1], notes: "808 follows the kick pattern; slide into the 5th" },
 
   // ── UK GARAGE / 2-STEP (130-135) ──
   { id: "ukg-kick-2step", role: "kick", genre: ["garage", "ukg", "2-step"], bpm: [128, 136], subdivision: "16n", grid: "X.........x.....", notes: "Kick skips beats 2 and 4; snare on 2 and 4" },

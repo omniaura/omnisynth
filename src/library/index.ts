@@ -52,7 +52,7 @@ export function usePattern(id: string, opts: UsePatternOptions = {}): { pattern:
     const chars = pattern.grid.replace(/\s+/g, "").split("");
     let hit = 0;
     steps = chars.map((c, i) => {
-      const degree = c === "." ? 0 : pattern.degrees![hit++ % pattern.degrees!.length];
+      const degree = c === "." ? 0 : pattern.degrees![pattern.degrees!.length === chars.length ? i : hit++ % pattern.degrees!.length];
       if (c === "." || !degree) return { rest: true };
       const note = notes[Math.max(0, Math.min(notes.length - 1, base + degree - 1))];
       const s = gridToSteps(c, { note, duration: pattern.subdivision === "4n" ? "4n" : pattern.subdivision === "8n" ? "8n" : pattern.subdivision === "32n" ? "32n" : "16n", swingMs: swing })[0];

@@ -104,7 +104,7 @@ export const PATTERN_LIBRARY: LibraryPattern[] = [
   { id: "trap-snare-3", role: "snare", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "........X......." },
   { id: "trap-hat-rolls", role: "hat", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "x.x.x.x.x.rrx.xr", notes: "8ths with 32nd rolls (ratchet) before the snare / at phrase ends; crescendo velocity" },
   { id: "drill-kick-slide", role: "kick", genre: ["drill", "uk-drill"], bpm: [138, 146], subdivision: "16n", grid: "X.........x.....", notes: "808 on 1 and the and-a of 3 (step 11); slide between notes" },
-  { id: "trap-808-notes", role: "bass", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "X......x..X.....", degrees: [1, 5, 1], notes: "808 follows the kick pattern; slide into the 5th" },
+    { id: "trap-808-notes", role: "bass", genre: ["trap", "drill"], bpm: [130, 150], subdivision: "16n", grid: "X......x..X.....", degrees: [1, 0, 0, 0, 0, 0, 0, 5, 0, 0, 1, 0, 0, 0, 0, 0], notes: "808 follows the kick pattern; slide into the 5th" },
 
   // ── UK GARAGE / 2-STEP (130-135) ──
   { id: "ukg-kick-2step", role: "kick", genre: ["garage", "ukg", "2-step"], bpm: [128, 136], subdivision: "16n", grid: "X.........x.....", notes: "Kick skips beats 2 and 4; snare on 2 and 4" },

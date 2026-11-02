@@ -10,8 +10,11 @@
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dist": "bun run build && electron-builder --mac --config electron-builder.json",
-    "dist:dir": "bun run build && electron-builder --mac --dir --config electron-builder.json"
+    "dist": "bun run build && node scripts/package-macos.mjs",
+    "dist:unsigned": "bun run build && node scripts/package-macos.mjs --unsigned",
+    "dist:dir": "bun run build && node scripts/package-macos.mjs --unsigned --dir",
+    "test:release": "node --test scripts/release-config.test.mjs",
+    "test:package": "node scripts/package-smoke.mjs"
   },
   "license": "MIT",
   "dependencies": {

@@ -49,7 +49,7 @@ await withCleanup(async () => {
   execFileSync(process.execPath, ["scripts/package-smoke.mjs", join(mount, "OmniSynth.app/Contents/MacOS/OmniSynth")], { stdio: "inherit" });
 }, [
   () => { if (mountedDisk) { run("/usr/bin/hdiutil", ["detach", mount]); mountedDisk = false; detachedDisk = true; } },
-  () => { if (detachedDisk) rmSync(root, { recursive: true, force: true }); },
+  () => { if (!mountedDisk || detachedDisk) rmSync(root, { recursive: true, force: true }); },
 ]);
 const files = [dmg, zip];
 writeFileSync("release/SHA256SUMS.txt", files.map((path) => `${digest(path)}  ${path.slice(path.lastIndexOf("/") + 1)}\n`).join(""));

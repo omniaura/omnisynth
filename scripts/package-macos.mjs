@@ -6,10 +6,10 @@ import { releaseConfig, packagingEnv } from "./release-config.mjs";
 if (process.platform !== "darwin") throw new Error("macOS packaging must run on a Mac.");
 const unsigned = process.argv.includes("--unsigned");
 const config = releaseConfig(process.env, { unsigned });
-Object.assign(process.env, packagingEnv(process.env, unsigned));
 if (execFileSync("/usr/bin/which", ["ditto"], { encoding: "utf8" }).trim() !== "/usr/bin/ditto") {
   throw new Error("Apple's /usr/bin/ditto must be the archive utility.");
 }
+Object.assign(process.env, packagingEnv(process.env, unsigned));
 // Package only the compiled app, with no workspace dependencies or credentials.
 // Vite bundles both main/preload dependencies; Electron is provided by builder.
 mkdirSync(".tmp", { recursive: true });

@@ -43,8 +43,12 @@ try {
     }
   }
   execFileSync(process.execPath, ["scripts/package-smoke.mjs", join(mount, "OmniSynth.app/Contents/MacOS/OmniSynth")], { stdio: "inherit" });
-} finally { run("/usr/bin/hdiutil", ["detach", mount]); }
-const files = readdirSync("release").filter((name) => /\.(dmg|zip)$/.test(name)).sort();
-writeFileSync("release/SHA256SUMS.txt", files.map((name) => `${digest(join("release", name))}  ${name}\n`).join(""));
+} finally {
+  try { run("/usr/bin/hdiutil", ["detach", mount]); } catch (err) {
+    console.warn(`hdiutil detach failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+const files = [dmg, zip];
+writeFileSync("release/SHA256SUMS.txt", files.map((path) => `${digest(path)}  ${path.slice(path.lastIndexOf("/") + 1)}\n`).join(""));
 writeFileSync("release/provenance.json", JSON.stringify({ repository: "omniaura/omnisynth", sourceSha: run("git", ["rev-parse", "HEAD"]).trim(), workflowSha: process.env.GITHUB_WORKFLOW_SHA || null, runId: process.env.GITHUB_RUN_ID || null, version: pkg.version, architecture: "arm64", signed, notarizationVerified: signed, published: false, updaterEnabled: false }, null, 2));
 console.log(`Verified DMG and ZIP; signing/notarization checked=${signed}. Publication and updater remain inactive.`);

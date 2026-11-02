@@ -41,6 +41,6 @@ jobs:
             release/*.zip
             release/SHA256SUMS.txt
             release/provenance.json
-            release/package-qa.*
+            release/package-qa*
           retention-days: 14
           if-no-files-found: error

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { _electron as electron } from "playwright-core";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { withCleanup } from "./with-cleanup.mjs";
 
 const executablePath = process.argv[2];
 if (!executablePath) throw new Error("Usage: node scripts/package-smoke.mjs /path/to/OmniSynth.app/Contents/MacOS/OmniSynth");
@@ -18,6 +19,7 @@ writeFileSync(sentinel, '{"preserve":"Ditto fixture"}');
 const env = Object.fromEntries(["PATH", "DISPLAY", "XAUTHORITY", "TMPDIR", "TEMP", "TMP", "SystemRoot"].filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
 Object.assign(env, { HOME: home, XDG_CONFIG_HOME: join(home, ".config"), SHELL: "/bin/sh", OMNISYNTH_QA_USER_DATA_DIR: profile });
 let app;
+await withCleanup(async () => {
 try {
   app = await electron.launch({ executablePath: resolve(executablePath), env, timeout: 60000 });
   const identity = await app.evaluate(({ app }) => ({ name: app.getName(), version: app.getVersion(), userData: app.getPath("userData"), packaged: app.isPackaged }));
@@ -45,6 +47,8 @@ try {
   assert.equal((await fetch(`${base}/tools`, { headers: { Authorization: `Bearer ${info.token}`, Origin: "https://example.invalid" } })).status, 403);
   const state = await (await fetch(`${base}/state`, { headers: { Authorization: `Bearer ${info.token}` } })).json();
   assert.ok(state.tracks.some((track) => track.id === "track-1"));
+  mkdirSync("release", { recursive: true });
+  await page.screenshot({ path: "release/package-qa.png" });
   await page.evaluate(() => localStorage.setItem("omnisynth.release-qa", "profile persists"));
   await page.reload();
   await page.getByTestId("app").waitFor();
@@ -52,10 +56,17 @@ try {
   assert.equal(readFileSync(sentinel, "utf8"), '{"preserve":"Ditto fixture"}');
   assert.deepEqual(errors, []);
   mkdirSync("release", { recursive: true });
-  await page.screenshot({ path: "release/package-qa.png" });
   writeFileSync("release/package-qa.json", JSON.stringify({ identity: { ...identity, userData: "isolated QA profile" }, checks: ["packaged identity", "settings", "track edit", "play/stop UI", "bridge auth", "bridge state", "profile reload", "Ditto fixture untouched"], limitations: ["No production credentials or inference", "No audio-output assertion", "No simultaneous live Ditto process or real keychain encryption assertion"] }, null, 2));
   console.log("Packaged OmniSynth smoke passed (isolated profile; Ditto fixture preserved).");
-} finally {
-  if (app) await app.close();
-  if (existsSync(join(profile, "bridge.json"))) throw new Error("Bridge discovery file was not cleaned up on quit.");
+} catch (error) {
+  try {
+    mkdirSync("release", { recursive: true });
+    const page = app?.windows()[0];
+    if (page) await page.screenshot({ path: "release/package-qa-failure.png" });
+  } catch { /* Screenshot failure must not hide the original UI assertion. */ }
+  throw error;
 }
+}, [
+  async () => { if (app) await app.close(); },
+  () => { assert.equal(existsSync(join(profile, "bridge.json")), false, "Bridge discovery file was not cleaned up on quit."); },
+]);

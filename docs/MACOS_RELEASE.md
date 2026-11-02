@@ -157,7 +157,12 @@ Its README attributes the ported engine/tool surface to `omarzanji/midi-gen`;
 that attribution alone is not a license grant. The current Electron stack
 removed Strudel and Tauri. Installed dependency license metadata and retained
 notices must be inspected before public distribution, especially Hydra and
-its transitive closure. Do not assume Ditto's licensing decision covers this
+its transitive closure. The frozen install inspected on Boat reports
+`hydra-synth@1.4.0` license metadata `AGPL`; its installed LICENSE explicitly
+says GNU Affero General Public License, Version 3. Electron 39.8.10,
+electron-builder 26.15.3, Tone 15.1.22 and Solid 1.9.10 report MIT. This is
+direct dependency evidence, not a complete transitive license audit.
+Do not assume Ditto's licensing decision covers this
 different product. Resolve source-license provenance and required source/
 notice delivery with the owner before public publication. Existing logo files
 remain technical placeholders; this work grants no brand approval.

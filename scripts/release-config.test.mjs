@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { releaseConfig, packagingEnv } from "./release-config.mjs";
 
 test("signed release fails closed for every absent credential", () => {
@@ -39,4 +40,14 @@ test("OmniSynth's bundle, protocol and artifact identity cannot overwrite Ditto"
   assert.equal(config.artifactName, "${productName}-${version}-${os}-${arch}.${ext}");
   assert.equal(config.mac.hardenedRuntime, true);
   assert.equal(packagingEnv({ PATH: "/heyditto/bin:/usr/bin" }, false).PATH.split(":")[0], "/usr/bin");
+});
+
+test("the packaging subprocess uses Apple's ditto despite an ambient CLI shadow", { skip: process.platform !== "darwin" }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "omnisynth-ditto-"));
+  try {
+    writeFileSync(join(dir, "ditto"), "#!/bin/sh\nexit 99\n", { mode: 0o700 });
+    const caller = { ...process.env, PATH: `${dir}:/usr/bin:/bin` };
+    assert.equal(execFileSync("/usr/bin/which", ["ditto"], { env: caller, encoding: "utf8" }).trim(), join(dir, "ditto"));
+    assert.equal(execFileSync("/usr/bin/which", ["ditto"], { env: packagingEnv(caller, false), encoding: "utf8" }).trim(), "/usr/bin/ditto");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

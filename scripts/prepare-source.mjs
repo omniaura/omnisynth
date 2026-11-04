@@ -13,7 +13,10 @@ export function prepareSource(destination, root = process.cwd()) {
     "tsconfig.node.json", "vite.config.ts", "electron-builder.json"];
   const excluded = new Set([".git", "node_modules", ".tmp", ".env", ".npmrc", ".DS_Store"]);
   const copy = (from, to) => cpSync(from, to, { recursive: true, dereference: true,
-    filter: (path) => { const base = path.split(/[\\/]/).at(-1); return !excluded.has(base) && !base.startsWith(".env."); } });
+    filter: (path) => {
+      const base = path.split(/[\\/]/).at(-1);
+      return realpathSync(path) === resolve(path) && !excluded.has(base) && !base.startsWith(".env.");
+    } });
   for (const entry of entries) if (existsSync(join(root, entry))) copy(join(root, entry), join(source, entry));
   cpSync(join(root, "LICENSE"), join(destination, "LICENSE"));
   const resolvePackage = (name, from) => {
@@ -62,7 +65,7 @@ export function prepareSource(destination, root = process.cwd()) {
     notices += "\n=== " + pkg.name + " " + pkg.version + " (" + JSON.stringify(pkg.license ?? "undeclared") + ") ===\n";
     for (const file of readdirSync(directory)) {
       if (/^(license|copying|notice|authors)([._-]|$)/i.test(file)) {
-        try { notices += "\n--- " + file + " ---\n" + readFileSync(join(directory, file), "utf8") + "\n"; } catch {}
+        try { notices += "\n--- " + file + " ---\n" + readFileSync(join(directory, file), "utf8") + "\n"; } catch (error) { throw new Error("Unreadable notice entry " + join(directory, file) + ": " + error.message); }
       }
     }
     const requiredPeerDependencies = Object.fromEntries(Object.entries(pkg.peerDependencies ?? {}).filter(([name]) => !pkg.peerDependenciesMeta?.[name]?.optional));

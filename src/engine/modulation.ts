@@ -303,6 +303,22 @@ export class ModMatrix {
       live.lfo?.dispose();
       live.lfo = undefined;
       const source = live.mod.source;
+      if (source.type === "follower") {
+        live.follower?.dispose();
+        live.followerGain?.dispose();
+        live.follower = undefined;
+        live.followerGain = undefined;
+        const src = this.followerSource(source.track);
+        if (src) {
+          const follower = new Tone.Meter({ normalRange: true, smoothing: Math.max(0.05, Math.min(0.98, 1 - 1 / (1 + ((source.attack ?? 0.01) + (source.release ?? 0.15)) * 20))) });
+          const tap = new Tone.Gain(1);
+          src.connect(tap);
+          tap.connect(follower);
+          live.follower = follower;
+          live.followerGain = tap;
+        }
+        continue;
+      }
       if (source.type !== "lfo" || source.shape === "sh" || source.shape === "random") continue;
       const handle = this.resolve(live.mod.target);
       if (!handle?.signal) continue;

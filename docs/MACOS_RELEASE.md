@@ -153,8 +153,10 @@ this Apple silicon candidate.
 ## Licensing evidence and public distribution gate
 
 The current package declares MIT, but the repository has no root LICENSE file.
-Its README attributes the ported engine/tool surface to `omarzanji/midi-gen`;
-that attribution alone is not a license grant. The current Electron stack
+Its README attributes the ported engine/tool surface to `omarzanji/midi-gen`.
+That upstream currently provides an [MIT LICENSE](https://github.com/omarzanji/midi-gen/blob/main/LICENSE)
+(copyright 2026 Omar Barazanji); preserve its notice for reused code and check
+the provenance of the ported revision. The current Electron stack
 removed Strudel and Tauri. Installed dependency license metadata and retained
 notices must be inspected before public distribution, especially Hydra and
 its transitive closure. The frozen install inspected on Boat reports

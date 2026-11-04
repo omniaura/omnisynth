@@ -17,6 +17,14 @@ whatever coding agent on your machine already has a gateway configured.
 
 Logo assets and source: [branding](assets/branding/README.md).
 
+## License
+
+The full Electron app is released under AGPL-3.0-only; see [LICENSE](LICENSE).
+Hydra remains part of this app. The current DAW uses Tone.js; restoring a
+Strudel live-coding surface is a separate follow-up. See
+[licensing and source delivery](docs/LICENSING.md) for upstream attribution.
+The independent `bevy-slice/` retains its own MIT license.
+
 ## How it works
 
 1. **Perceive** — a cheap multimodal model turns the prompt and attachments

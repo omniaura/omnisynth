@@ -152,22 +152,19 @@ this Apple silicon candidate.
 
 ## Licensing evidence and public distribution gate
 
-The current package declares MIT, but the repository has no root LICENSE file.
-Its README attributes the ported engine/tool surface to `omarzanji/midi-gen`.
-That upstream currently provides an [MIT LICENSE](https://github.com/omarzanji/midi-gen/blob/main/LICENSE)
-(copyright 2026 Omar Barazanji); preserve its notice for reused code and check
-the provenance of the ported revision. The current Electron stack
-removed Strudel and Tauri. Installed dependency license metadata and retained
-notices must be inspected before public distribution, especially Hydra and
-its transitive closure. The frozen install inspected on Boat reports
-`hydra-synth@1.4.0` license metadata `AGPL`; its installed LICENSE explicitly
-says GNU Affero General Public License, Version 3. Electron 39.8.10,
-electron-builder 26.15.3, Tone 15.1.22 and Solid 1.9.10 report MIT. This is
-direct dependency evidence, not a complete transitive license audit.
-Do not assume Ditto's licensing decision covers this
-different product. Resolve source-license provenance and required source/
-notice delivery with the owner before public publication. Existing logo files
-remain technical placeholders; this work grants no brand approval.
+The owner selected AGPL-3.0-only for the full Electron app on 2026-11-04.
+The root LICENSE and package metadata now agree. Hydra is retained; the
+current DAW uses Tone.js, with a Strudel surface planned separately.
+The original MIDI Gen MIT notice is retained in `third-party/`.
+Packaging includes this checkout's application source, installed production
+dependency source, dependency inventory and license notices under
+`Contents/Resources/licensing/`. See [LICENSING.md](LICENSING.md).
+Electron's own license and Chromium notices remain in its packaged resources.
+The independent Bevy experiment retains its own MIT license.
+
+AGPL selection does not publish the private repository, configure signing
+secrets, notarize a package or activate an updater. Validate matching source,
+dependency notices and any additional asset terms before public distribution.
 
 References: [electron-builder v26 macOS options](https://www.electron.build/v26/docs/mac/),
 [Electron notarization](https://github.com/electron/notarize),

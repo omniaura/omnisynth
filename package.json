@@ -13,10 +13,10 @@
     "dist": "bun run build && node scripts/package-macos.mjs",
     "dist:unsigned": "bun run build && node scripts/package-macos.mjs --unsigned",
     "dist:dir": "bun run build && node scripts/package-macos.mjs --unsigned --dir",
-    "test:release": "node --test scripts/release-config.test.mjs scripts/with-cleanup.test.mjs",
+    "test:release": "node --test scripts/release-config.test.mjs scripts/with-cleanup.test.mjs scripts/prepare-source.test.mjs",
     "test:package": "node scripts/package-smoke.mjs"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-javascript": "^6.2.4",

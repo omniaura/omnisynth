@@ -158,8 +158,8 @@ export class Bridge {
     const auth = req.headers.authorization ?? "";
     if (url.pathname === "/health") {
       const authorized = auth === `Bearer ${token}`;
-      const state = authorized ? await this.callRenderer({ kind: "state" }, 3000) : { ok: false };
-      return json(res, 200, { ok: true, version: this.info?.version, pid: process.pid, song: state.ok ? state.result : null });
+      const state = authorized ? await this.callRenderer({ kind: "state" }, 3000) : null;
+      return json(res, 200, { ok: true, version: this.info?.version, pid: process.pid, song: state?.ok ? state.result : null });
     }
     if (auth !== `Bearer ${token}`) return json(res, 401, { error: "invalid_token", message: "Authorization: Bearer <token> from bridge.json is required." });
 

@@ -1,0 +1,59 @@
+name: Bevy Slice
+on:
+  pull_request:
+    paths:
+      - bevy-slice/**
+      - .github/workflows/bevy-slice.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bevy-slice-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: bevy-slice
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y libasound2-dev libasound2-plugins libx11-dev libxi-dev libxrandr-dev libxkbcommon-dev xvfb xdotool pulseaudio ffmpeg mesa-vulkan-drivers
+      - name: Format and deterministic synth tests
+        run: cargo fmt --check && cargo clippy --locked -- -D warnings && cargo test --locked
+      - name: Build independent executable
+        run: cargo build --locked
+      - name: Native window, audio loopback and agent QA
+        if: runner.os == 'Linux'
+        run: python3 scripts/smoke.py target/debug/omnisynth-bevy-slice --out .tmp/ci-qa
+      - name: Retain QA evidence
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bevy-slice-linux-qa-${{ github.sha }}
+          path: |
+            bevy-slice/.tmp/ci-qa/native.png
+            bevy-slice/.tmp/ci-qa/native.mp4
+            bevy-slice/.tmp/ci-qa/loopback.wav
+            bevy-slice/.tmp/ci-qa/proof.json
+            bevy-slice/.tmp/ci-qa/process-*.log
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Retain unsigned native executable
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bevy-slice-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: bevy-slice/target/debug/omnisynth-bevy-slice
+          if-no-files-found: error
+          retention-days: 14

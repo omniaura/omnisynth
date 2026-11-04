@@ -51,9 +51,10 @@ async function recent(before = Infinity, limit = 40): Promise<ConversationTurn[]
 /** Keep complete tool-call/result batches when constructing a bounded model window. */
 export function completeMessages(messages: ChatMessage[]): ChatMessage[] {
   const result = messages.map((message) => ({ ...message }));
-  const answered = new Set(result.filter((message) => message.role === "tool").map((message) => message.tool_call_id));
   for (let i = result.length - 1; i >= 0; i--) {
     const calls = result[i].tool_calls ?? [];
+    const answered = new Set<string | undefined>();
+    for (let j = i + 1; j < result.length && result[j].role === "tool"; j++) answered.add(result[j].tool_call_id);
     const missing: ChatMessage[] = calls.filter((call) => !answered.has(call.id)).map((call) => ({ role: "tool", tool_call_id: call.id, name: call.function.name, content: "Not executed: the previous turn stopped before this call ran." }));
     if (missing.length) result.splice(i + 1, 0, ...missing);
   }
@@ -163,14 +164,18 @@ export const conversation = createRoot(() => {
     return JSON.stringify(found.map((turn) => ({ id: turn.id, prompt: turn.prompt.slice(0, 4000), response: turn.events.filter((event) => event.type === "assistant" || event.type === "done").map((event) => event.text).join("\n").slice(-4000) })));
   }
 
-  async function read(id: string): Promise<string> {
+  async function read(id: string, offset = 0): Promise<string> {
     const database = await db();
     const turn = await new Promise<ConversationTurn | undefined>((resolve, reject) => {
       const request = database.transaction("turns").objectStore("turns").get(id);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    return turn ? JSON.stringify({ prompt: turn.prompt, messages: turn.messages, outcome: turn.outcome }).slice(0, 24000) : "No conversation turn with that id.";
+    if (!turn) return "No conversation turn with that id.";
+    const full = JSON.stringify({ prompt: turn.prompt, messages: turn.messages, outcome: turn.outcome });
+    const start = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+    const end = Math.min(start + 12000, full.length);
+    return JSON.stringify({ id, text: full.slice(start, end), nextOffset: end < full.length ? end : null });
   }
 
   return { turns, hasOlder, error, load, older, begin, event, messages, finish, context, search, read };

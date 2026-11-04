@@ -27,6 +27,7 @@ jobs:
           node-version: 22.23.4
       - run: bun install --frozen-lockfile
       - run: bun run test:release
+      - run: bun test scripts/conversation.test.ts
       - name: Build unsigned package (no signing credentials)
         run: bun run dist:unsigned
       - name: Verify DMG, ZIP and packaged UI

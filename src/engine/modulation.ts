@@ -302,6 +302,21 @@ export class ModMatrix {
       live.lfo?.stop();
       live.lfo?.dispose();
       live.lfo = undefined;
+      const source = live.mod.source;
+      if (source.type !== "lfo" || source.shape === "sh" || source.shape === "random") continue;
+      const handle = this.resolve(live.mod.target);
+      if (!handle?.signal) continue;
+      const shape = source.shape ?? "sine";
+      const mod = live.mod;
+      const a = mod.offset + (mod.bipolar ? -Math.abs(mod.depth) : Math.min(0, mod.depth));
+      const b = mod.offset + (mod.bipolar ? Math.abs(mod.depth) : Math.max(0, mod.depth));
+      const lo = Math.max(handle.min, Math.min(handle.max, a));
+      const hi = Math.max(handle.min, Math.min(handle.max, b));
+      const lfo = new Tone.LFO({ frequency: source.rate as Tone.Unit.Frequency, min: lo, max: hi, type: shape as Tone.ToneOscillatorType });
+      if (source.phase) lfo.phase = source.phase;
+      lfo.connect(handle.signal as unknown as Tone.InputNode);
+      lfo.start();
+      live.lfo = lfo;
     }
   }
 }

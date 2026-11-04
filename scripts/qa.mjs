@@ -55,9 +55,20 @@ async function smoke() {
   await shot("02-settings");
   await t("settings-close").click();
   // Add an empty track and draw a few steps.
+  const existingTrackIds = await page.locator('[data-testid^="track-"]').evaluateAll((els) =>
+    els.map((el) => el.getAttribute("data-testid")),
+  );
   await t("add-track").click();
-  await page.waitForSelector('[data-testid="track-track-1"]');
-  const steps = page.locator('[data-testid="track-track-1"] .step');
+  const newTrackId = await page.waitForFunction(
+    (ids) => {
+      const track = [...document.querySelectorAll('[data-testid^="track-"]')].find(
+        (el) => !ids.includes(el.getAttribute("data-testid")),
+      );
+      return track?.getAttribute("data-testid") ?? false;
+    },
+    existingTrackIds,
+  );
+  const steps = page.getByTestId(await newTrackId.jsonValue()).locator(".step");
   for (const i of [0, 4, 8, 12]) await steps.nth(i).click();
   await t("play").click();
   await page.waitForTimeout(1500);

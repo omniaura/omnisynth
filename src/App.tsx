@@ -64,6 +64,7 @@ export default function App() {
     // Resume the audio context on first interaction so Play is instant.
     const resume = () => void engine.init();
     window.addEventListener("pointerdown", resume, { once: true });
+    onCleanup(() => window.removeEventListener("pointerdown", resume));
     // Debug/QA handle (scripts/qa.mjs reads state and drives tools through it).
     (window as unknown as { __omnisynth: unknown }).__omnisynth = { engine, store, tools: (name: string, args: Record<string, unknown>) => executeTool(name, args, toolContext) };
   });

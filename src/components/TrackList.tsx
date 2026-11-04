@@ -160,7 +160,9 @@ const parsed: unknown = JSON.parse(notesText());
               (s.velocity === undefined || typeof s.velocity === "number") &&
               (s.ratchet === undefined || typeof s.ratchet === "number") &&
               (s.prob === undefined || typeof s.prob === "number") &&
-              (s.cond === undefined || typeof s.cond === "string")
+                (s.cond === undefined || typeof s.cond === "string") &&
+                (s.nudge === undefined || typeof s.nudge === "number") &&
+                (s.slide === undefined || typeof s.slide === "number")
             );
           })
         ) throw new Error("expected an array of valid step objects");

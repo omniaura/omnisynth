@@ -113,6 +113,7 @@ export async function perceive(opts: { provider: ProviderId; model: string; prom
     brief = parseBrief(raw);
     const stillMissing = missingFields(brief);
     if (stillMissing.length) throw new Error(`perceive: brief still missing fields after retry: ${stillMissing.join(", ")}`);
+  }
   return brief;
 }
 

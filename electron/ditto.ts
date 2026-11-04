@@ -58,7 +58,8 @@ export function readDittoSession(): Session {
   }
   const appKey = getSecret(SECRET_ACCOUNT_KEY);
   if (appKey) return { loggedIn: true, source: "app", accountKey: appKey, endpointKey, endpoint };
-  if (process.env.DITTO_API_KEY) return { loggedIn: true, source: "env", accountKey: process.env.DITTO_API_KEY, endpointKey, endpoint };
+  const envKey = process.env.DITTO_API_KEY?.trim();
+  if (envKey) return { loggedIn: true, source: "env", accountKey: envKey, endpointKey, endpoint };
   const cli = cliConfig();
   if (cli?.apiKey) return { loggedIn: true, source: "cli", accountKey: cli.apiKey, endpointKey, endpoint };
   const desktop = detectDittoDesktop();
@@ -68,7 +69,7 @@ export function readDittoSession(): Session {
 
 export function cliInstalled(): boolean {
   try {
-    execFileSync("/usr/bin/which", ["heyditto"], { stdio: "ignore" });
+    execFileSync(process.platform === "win32" ? "where" : "/usr/bin/which", ["heyditto"], { stdio: "ignore" });
     return true;
   } catch {
     return false;

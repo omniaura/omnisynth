@@ -11,7 +11,7 @@ export function prepareSource(destination, root = process.cwd()) {
     "tsconfig.node.json", "vite.config.ts", "electron-builder.json"];
   const excluded = new Set([".git", "node_modules", ".tmp", ".env", ".npmrc", ".DS_Store"]);
   const copy = (from, to) => cpSync(from, to, { recursive: true, dereference: true,
-    filter: (path) => !excluded.has(path.split("/").at(-1)) && !path.split("/").at(-1).startsWith(".env.") });
+    filter: (path) => { const base = path.split(/[\\/]/).at(-1); return !excluded.has(base) && !base.startsWith(".env."); } });
   for (const entry of entries) if (existsSync(join(root, entry))) copy(join(root, entry), join(source, entry));
   cpSync(join(root, "LICENSE"), join(destination, "LICENSE"));
   const resolvePackage = (name, from) => {
@@ -52,8 +52,9 @@ export function prepareSource(destination, root = process.cwd()) {
         try { notices += "\n--- " + file + " ---\n" + readFileSync(join(directory, file), "utf8") + "\n"; } catch {}
       }
     }
-    for (const dependency of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies })) {
-      pending.push({ name: dependency, from: directory, optional: Boolean(pkg.optionalDependencies?.[dependency]) });
+    const requiredPeerDependencies = Object.fromEntries(Object.entries(pkg.peerDependencies ?? {}).filter(([name]) => !pkg.peerDependenciesMeta?.[name]?.optional));
+    for (const dependency of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies, ...requiredPeerDependencies })) {
+      pending.push({ name: dependency, from: directory, optional: Boolean(pkg.optionalDependencies?.[dependency]) && !Object.hasOwn(requiredPeerDependencies, dependency) });
     }
   }
   notices += "\n=== MIDI Gen original MIT notice ===\n" + readFileSync(join(root, "third-party/midi-gen-MIT.txt"), "utf8");

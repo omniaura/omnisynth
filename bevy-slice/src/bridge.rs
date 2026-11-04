@@ -22,8 +22,18 @@ struct Request {
     body: Vec<u8>,
 }
 fn receive(mut stream: TcpStream) -> Result<Request, (TcpStream, u16)> {
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(1)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+    // BSD and Linux differ in accepted-socket flag inheritance. The listener
+    // polls nonblocking; each accepted connection needs blocking, timed I/O.
+    if stream.set_nonblocking(false).is_err()
+        || stream
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .is_err()
+        || stream
+            .set_write_timeout(Some(Duration::from_secs(1)))
+            .is_err()
+    {
+        return Err((stream, 500));
+    }
     let deadline = Instant::now() + Duration::from_secs(4);
     let mut bytes = Vec::with_capacity(1024);
     let end = loop {
@@ -323,6 +333,25 @@ impl Drop for Bridge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fragmented_requests_work_even_when_the_accepted_socket_is_nonblocking() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            stream.set_nonblocking(true).unwrap();
+            receive(stream)
+                .map(|r| r.body)
+                .map_err(|(_, status)| status)
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        client
+            .write_all(b"POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n")
+            .unwrap();
+        thread::sleep(Duration::from_millis(40));
+        client.write_all(b"{}").unwrap();
+        assert_eq!(worker.join().unwrap().unwrap(), b"{}");
+    }
     #[test]
     fn oversized_bodies_and_stalled_headers_are_bounded() {
         for (wire, expected) in [

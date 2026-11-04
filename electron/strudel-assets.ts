@@ -15,7 +15,7 @@ export async function serveStrudel(pathname: string, res: ServerResponse): Promi
     res.setHeader("Content-Type", mime[extname(file)]);
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "no-store");
-      res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https: data: blob:; media-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; frame-ancestors file: http://localhost:5173 http://127.0.0.1:5173");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https: data: blob:; media-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; frame-ancestors file: http://localhost:1420 http://127.0.0.1:1420");
     res.end(data);
   } catch { res.writeHead(404).end(); }
 }

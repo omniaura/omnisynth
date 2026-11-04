@@ -55,7 +55,14 @@ def stop(process):
             process.wait(timeout=12)
         except subprocess.TimeoutExpired:
             process.terminate()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
 
 try:
     display = start(["Xvfb", "-displayfd", "1", "-screen", "0", "1100x700x24", "-nolisten", "tcp"], stdout=subprocess.PIPE)

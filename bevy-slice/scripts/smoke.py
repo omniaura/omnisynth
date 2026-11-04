@@ -49,6 +49,8 @@ def wait_for(fn, timeout=30):
     raise AssertionError(f"Timed out; last error: {last}")
 
 def stop(process):
+    if process not in processes:
+        raise ValueError("Refusing to signal a process not started by this smoke run")
     if process.poll() is None:
         # Inspect each still-owned child before signalling it; never discover or
         # kill processes by name, port or a PID read from a discovery file.

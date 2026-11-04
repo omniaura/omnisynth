@@ -74,8 +74,10 @@ Example `tools/call` payload after initialization:
 ```
 
 Acceptance is not application: poll `get_state.applied_revision` until it
-reaches the returned `accepted_revision`. Telemetry fields are sampled
-independently and may span adjacent callbacks. Browser Origin headers and
+reaches the returned `accepted_revision`. Pattern, transport and sample metrics
+are published together. The audio callback only tries to acquire the telemetry
+slot; if a reader holds it, publication waits until a later callback while audio
+continues. Backend error counts are read separately. Browser Origin headers and
 non-loopback Host values are rejected. Request bodies are limited to 8 KiB,
 with four-second read deadlines, a 64-command queue and a fixed tool surface. No tool reads arbitrary
 files, executes code, changes accounts, or invokes paid inference.

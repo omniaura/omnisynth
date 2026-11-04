@@ -2,12 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering},
+    atomic::{AtomicU64, Ordering},
     mpsc::{Receiver, SyncSender, sync_channel},
 };
 
 pub const STEPS: usize = 16;
-const REST: u8 = 255;
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -70,6 +69,13 @@ impl Pattern {
 pub enum Change {
     Pattern(Pattern),
     Transport(bool),
+    Edit(Edit),
+}
+pub enum Edit {
+    Tempo(i8),
+    Waveform,
+    ToggleStep(usize),
+    Reset,
 }
 pub struct Command {
     pub revision: u64,
@@ -77,19 +83,10 @@ pub struct Command {
 }
 
 pub struct Meter {
-    pub frames: AtomicU64,
     pub audio_errors: AtomicU64,
-    pub revision: AtomicU64,
-    pub playing: AtomicBool,
-    pub step: AtomicU8,
-    pub rms: AtomicU32,
-    pub peak: AtomicU32,
-    pub bpm: AtomicU32,
-    pub gain: AtomicU32,
-    pub waveform: AtomicU8,
-    pub notes: [AtomicU8; STEPS],
+    latest: Mutex<Snapshot>,
 }
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Snapshot {
     pub frames: u64,
     pub applied_revision: u64,
@@ -103,42 +100,27 @@ pub struct Snapshot {
 impl Meter {
     fn new(p: &Pattern) -> Self {
         Self {
-            frames: AtomicU64::new(0),
             audio_errors: AtomicU64::new(0),
-            revision: AtomicU64::new(0),
-            playing: AtomicBool::new(false),
-            step: AtomicU8::new(0),
-            rms: AtomicU32::new(0),
-            peak: AtomicU32::new(0),
-            bpm: AtomicU32::new(p.bpm.to_bits()),
-            gain: AtomicU32::new(p.gain.to_bits()),
-            waveform: AtomicU8::new(0),
-            notes: std::array::from_fn(|i| AtomicU8::new(p.notes[i].unwrap_or(REST))),
+            latest: Mutex::new(Snapshot {
+                frames: 0,
+                applied_revision: 0,
+                audio_errors: 0,
+                playing: false,
+                step: 0,
+                rms: 0.,
+                peak: 0.,
+                pattern: p.clone(),
+            }),
         }
     }
     pub fn snapshot(&self) -> Snapshot {
-        Snapshot {
-            frames: self.frames.load(Ordering::Relaxed),
-            applied_revision: self.revision.load(Ordering::Acquire),
-            audio_errors: self.audio_errors.load(Ordering::Relaxed),
-            playing: self.playing.load(Ordering::Relaxed),
-            step: self.step.load(Ordering::Relaxed),
-            rms: f32::from_bits(self.rms.load(Ordering::Relaxed)),
-            peak: f32::from_bits(self.peak.load(Ordering::Relaxed)),
-            pattern: Pattern {
-                notes: std::array::from_fn(|i| match self.notes[i].load(Ordering::Relaxed) {
-                    REST => None,
-                    n => Some(n),
-                }),
-                bpm: f32::from_bits(self.bpm.load(Ordering::Relaxed)),
-                gain: f32::from_bits(self.gain.load(Ordering::Relaxed)),
-                waveform: if self.waveform.load(Ordering::Relaxed) == 0 {
-                    Waveform::Sine
-                } else {
-                    Waveform::Triangle
-                },
-            },
-        }
+        let mut snapshot = self
+            .latest
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        snapshot.audio_errors = self.audio_errors.load(Ordering::Relaxed);
+        snapshot
     }
 }
 
@@ -152,6 +134,11 @@ impl Controller {
     pub fn send(&self, change: Change) -> Result<u64, String> {
         if let Change::Pattern(p) = &change {
             p.validate()?;
+        }
+        if let Change::Edit(Edit::ToggleStep(index)) = &change
+            && *index >= STEPS
+        {
+            return Err("step must be 0..15".into());
         }
         let mut next = self
             .next
@@ -222,13 +209,35 @@ impl Engine {
         )
     }
     pub fn commands(&mut self) {
-        // Fixed queue capacity bounds callback work. No locks, allocation or I/O.
+        // Fixed queue capacity bounds callback work. No waiting, allocation or I/O.
         for _ in 0..64 {
             let Ok(command) = self.rx.try_recv() else {
                 break;
             };
             match command.change {
                 Change::Pattern(p) => self.pattern = p,
+                Change::Edit(edit) => match edit {
+                    Edit::Tempo(delta) => {
+                        self.pattern.bpm = (self.pattern.bpm + delta as f32).clamp(40., 240.)
+                    }
+                    Edit::Waveform => {
+                        self.pattern.waveform = if self.pattern.waveform == Waveform::Sine {
+                            Waveform::Triangle
+                        } else {
+                            Waveform::Sine
+                        }
+                    }
+                    Edit::ToggleStep(index) => {
+                        if index < STEPS {
+                            self.pattern.notes[index] = if self.pattern.notes[index].is_some() {
+                                None
+                            } else {
+                                Some(48)
+                            };
+                        }
+                    }
+                    Edit::Reset => self.pattern = Pattern::default(),
+                },
                 Change::Transport(play) => {
                     self.playing = play;
                     self.step = 0;
@@ -273,28 +282,20 @@ impl Engine {
         sample
     }
     pub fn publish(&self, square_sum: f64, peak: f32, count: usize) {
-        self.meter.frames.store(self.frames, Ordering::Relaxed);
-        self.meter.playing.store(self.playing, Ordering::Relaxed);
-        self.meter.step.store(self.step as u8, Ordering::Relaxed);
-        self.meter.rms.store(
-            ((square_sum / count.max(1) as f64).sqrt() as f32).to_bits(),
-            Ordering::Relaxed,
-        );
-        self.meter.peak.store(peak.to_bits(), Ordering::Relaxed);
-        self.meter
-            .bpm
-            .store(self.pattern.bpm.to_bits(), Ordering::Relaxed);
-        self.meter
-            .gain
-            .store(self.pattern.gain.to_bits(), Ordering::Relaxed);
-        self.meter.waveform.store(
-            (self.pattern.waveform == Waveform::Triangle) as u8,
-            Ordering::Relaxed,
-        );
-        for (i, note) in self.pattern.notes.iter().enumerate() {
-            self.meter.notes[i].store(note.unwrap_or(REST), Ordering::Relaxed);
+        // Never wait for a reader. A missed telemetry publication is retried on
+        // the next callback; acknowledgements cannot outrun their pattern data.
+        if let Ok(mut latest) = self.meter.latest.try_lock() {
+            *latest = Snapshot {
+                frames: self.frames,
+                applied_revision: self.revision,
+                audio_errors: 0,
+                playing: self.playing,
+                step: self.step as u8,
+                rms: (square_sum / count.max(1) as f64).sqrt() as f32,
+                peak,
+                pattern: self.pattern.clone(),
+            };
         }
-        self.meter.revision.store(self.revision, Ordering::Release);
     }
     pub fn render(&mut self, output: &mut [f32]) {
         self.commands();
@@ -316,6 +317,31 @@ pub fn visual_energy(rms: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn edits_compose_and_snapshot_publication_never_waits_for_a_reader() {
+        let (mut engine, control) = Engine::new(48000);
+        control.send(Change::Edit(Edit::Tempo(5))).unwrap();
+        control.send(Change::Edit(Edit::Waveform)).unwrap();
+        let revision = control.send(Change::Edit(Edit::ToggleStep(1))).unwrap();
+        let guard = control.meter.latest.lock().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            engine.render(&mut [0.; 128]);
+            tx.send(engine).unwrap();
+        });
+        let mut engine = rx
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .expect("audio callback waited for a telemetry reader");
+        drop(guard);
+        worker.join().unwrap();
+        assert_eq!(control.meter.snapshot().applied_revision, 0);
+        engine.render(&mut [0.; 128]);
+        let state = control.meter.snapshot();
+        assert_eq!(state.applied_revision, revision);
+        assert_eq!(state.pattern.bpm, 125.);
+        assert_eq!(state.pattern.waveform, Waveform::Triangle);
+        assert_eq!(state.pattern.notes[1], Some(48));
+    }
     #[test]
     fn block_size_does_not_change_music_and_queue_is_bounded() {
         let (mut a, ca) = Engine::new(48000);

@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     render::view::screenshot::{Screenshot, save_to_disk},
 };
-use engine::{Change, Controller, Engine, Waveform, visual_energy};
+use engine::{Change, Controller, Edit, Engine, visual_energy};
 use std::{
     path::PathBuf,
     sync::{
@@ -162,29 +162,19 @@ fn update(
         let _ = studio.control.send(Change::Transport(!state.playing));
     }
     if keyboard.just_pressed(KeyCode::ArrowUp) || keyboard.just_pressed(KeyCode::ArrowDown) {
-        let mut p = state.pattern.clone();
-        p.bpm = (p.bpm
-            + if keyboard.just_pressed(KeyCode::ArrowUp) {
-                5.
+        let _ = studio.control.send(Change::Edit(Edit::Tempo(
+            if keyboard.just_pressed(KeyCode::ArrowUp) {
+                5
             } else {
-                -5.
-            })
-        .clamp(40., 240.);
-        let _ = studio.control.send(Change::Pattern(p));
+                -5
+            },
+        )));
     }
     if keyboard.just_pressed(KeyCode::KeyW) {
-        let mut p = state.pattern.clone();
-        p.waveform = if p.waveform == Waveform::Sine {
-            Waveform::Triangle
-        } else {
-            Waveform::Sine
-        };
-        let _ = studio.control.send(Change::Pattern(p));
+        let _ = studio.control.send(Change::Edit(Edit::Waveform));
     }
     if keyboard.just_pressed(KeyCode::KeyR) {
-        let _ = studio
-            .control
-            .send(Change::Pattern(engine::Pattern::default()));
+        let _ = studio.control.send(Change::Edit(Edit::Reset));
     }
     if mouse.just_pressed(MouseButton::Left)
         && let Some(cursor) = window.cursor_position()
@@ -194,13 +184,7 @@ fn update(
         if (-208. ..=-162.).contains(&y) && (-442. ..=442.).contains(&x) {
             let index = ((x + 448.) / 56.).floor() as usize;
             if index < 16 {
-                let mut p = state.pattern.clone();
-                p.notes[index] = if p.notes[index].is_some() {
-                    None
-                } else {
-                    Some(48)
-                };
-                let _ = studio.control.send(Change::Pattern(p));
+                let _ = studio.control.send(Change::Edit(Edit::ToggleStep(index)));
             }
         }
     }

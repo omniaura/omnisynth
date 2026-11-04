@@ -137,7 +137,11 @@ try:
     invalid = rpc("tools/call", {"name": "set_pattern", "arguments": {"notes": [127]*16, "bpm": 120, "gain": 0.2, "waveform": "sine"}})
     assert invalid["isError"] is True
     wait_for(lambda: state()["frames"] > 1000)
-    window_id = wait_for(lambda: subprocess.run(["xdotool", "search", "--onlyvisible", "--name", "OmniSynth Bevy Slice"], env=env, capture_output=True, text=True).stdout.strip(), timeout=90).splitlines()[0]
+    def visible_window():
+        if app.poll() is not None:
+            raise RuntimeError(f"Native app exited {app.returncode}; inspect process logs in {out}")
+        return subprocess.run(["xdotool", "search", "--onlyvisible", "--name", "OmniSynth Bevy Slice"], env=env, capture_output=True, text=True).stdout.strip()
+    window_id = wait_for(visible_window, timeout=90).splitlines()[0]
     recording = start(["ffmpeg", "-y", "-loglevel", "warning", "-thread_queue_size", "512", "-f", "x11grab", "-framerate", "24", "-video_size", "1100x700", "-i", env["DISPLAY"], "-thread_queue_size", "512", "-f", "pulse", "-i", "omnisynth_slice.monitor",
                        "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-threads", "2", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(out / "native.mp4"),
                        "-map", "1:a", "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", str(out / "loopback.wav")], env=env)

@@ -14,7 +14,8 @@ cd bevy-slice
 cargo run --locked
 ```
 
-On Linux the build needs ALSA/X11 development packages. On macOS Rust uses
+On Linux the build needs ALSA/X11 development packages, and window startup
+needs the `libxkbcommon-x11-0` runtime package. On macOS Rust uses
 CoreAudio and Metal. Builds/tests in the coding workspace run on Omni Aura
 Boat; native macOS builds use the dedicated macOS CI job. Nothing needs an
 inference key or a Ditto login.

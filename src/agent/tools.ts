@@ -379,7 +379,6 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   }
   if (name === "get_audio_status") return JSON.stringify({ selectedEngine: strudel.selected(), tone: engine.audioStatus(), strudel: strudel.status() });
   await engine.init();
-  await engine.init();
   switch (name) {
     case "set_bpm": {
       const bpm = argNum(args, "bpm");

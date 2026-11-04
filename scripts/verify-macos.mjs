@@ -17,13 +17,13 @@ run("/usr/bin/hdiutil", ["verify", dmg]);
 mkdirSync(".tmp", { recursive: true });
 const root = mkdtempSync(resolve(".tmp/artifact-qa-"));
 const mount = join(root, "mount");
-mkdirSync(mount);
 const unpacked = resolve("release/mac-arm64/OmniSynth.app");
-const zipDir = join(root, "zip");
-run("/usr/bin/ditto", ["-x", "-k", zip, zipDir]);
 let mountedDisk = false;
 let detachedDisk = false;
 await withCleanup(async () => {
+  mkdirSync(mount);
+  const zipDir = join(root, "zip");
+  run("/usr/bin/ditto", ["-x", "-k", zip, zipDir]);
   run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, dmg]);
   mountedDisk = true;
   const mounted = join(mount, "OmniSynth.app");
@@ -53,5 +53,5 @@ await withCleanup(async () => {
 ]);
 const files = [dmg, zip];
 writeFileSync("release/SHA256SUMS.txt", files.map((path) => `${digest(path)}  ${path.slice(path.lastIndexOf("/") + 1)}\n`).join(""));
-writeFileSync("release/provenance.json", JSON.stringify({ repository: "omniaura/omnisynth", sourceSha: run("git", ["rev-parse", "HEAD"]).trim(), workflowSha: process.env.GITHUB_WORKFLOW_SHA || null, runId: process.env.GITHUB_RUN_ID || null, version: pkg.version, architecture: "arm64", signed, notarizationVerified: signed, published: false, updaterEnabled: false }, null, 2));
+writeFileSync("release/provenance.json", JSON.stringify({ repository: "omniaura/omnisynth", sourceSha: run("git", ["rev-parse", "HEAD"]).trim(), workflowSha: process.env.GITHUB_SHA || null, runId: process.env.GITHUB_RUN_ID || null, version: pkg.version, architecture: "arm64", signed, notarizationVerified: signed, published: false, updaterEnabled: false }, null, 2));
 console.log(`Verified DMG and ZIP; signing/notarization checked=${signed}. Publication and updater remain inactive.`);

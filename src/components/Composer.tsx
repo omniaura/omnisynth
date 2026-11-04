@@ -4,6 +4,7 @@ import { store } from "../stores/app";
 import { bridge } from "../agent/client";
 import { cancelRun, runGenerate, resolveModel } from "../lib/run";
 import type { Brief } from "../agent/perceive";
+import Conversation from "./Conversation";
 
 /**
  * The prompt composer: text + attachments (images, audio, notes) → Generate.
@@ -80,7 +81,6 @@ function BriefCard(props: { brief: Brief }) {
 export default function Composer() {
   const [dragging, setDragging] = createSignal(false);
   let fileInput: HTMLInputElement | undefined;
-  let logEl: HTMLDivElement | undefined;
 
   async function pick(): Promise<void> {
     try {
@@ -129,21 +129,22 @@ export default function Composer() {
   return (
     <aside class={`panel composer ${dragging() ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} data-testid="composer">
       <div class="panel-head">
-        <h2>Compose</h2>
-        <span class="muted">multisensory prompt</span>
+        <h2>Producer</h2>
         <div class="spacer" />
         <button class="btn-ghost small" onClick={() => store.setComposerOpen(false)} title="Hide">
           ›
         </button>
       </div>
 
+      <Conversation />
+
       <textarea
         class="prompt"
-        placeholder="Describe the track. Reference artists, textures, structure… Attach images for mood and palette, a song for tempo/groove/timbre, lyrics or notes for constraints."
+        placeholder="Message the producer…"
         value={store.prompt()}
         onInput={(e) => store.setPrompt(e.currentTarget.value)}
         onKeyDown={onKey}
-        rows="5"
+        rows="3"
         data-testid="prompt"
       />
 
@@ -162,7 +163,7 @@ export default function Composer() {
           </button>
         }>
           <button class="btn-primary" onClick={() => void runGenerate()} data-testid="generate">
-            Generate <kbd>⌘↵</kbd>
+            Send <kbd>⌘↵</kbd>
           </button>
         </Show>
         <div class="run-models muted" title="Perceive → Orchestrate models (change in Settings)">
@@ -181,32 +182,6 @@ export default function Composer() {
 
       <Show when={store.brief()}>{(b) => <BriefCard brief={b()} />}</Show>
 
-      <div class="log" ref={logEl} data-testid="log">
-        <For each={store.log()}>
-          {(e) => {
-            queueMicrotask(() => logEl?.scrollTo({ top: logEl.scrollHeight }));
-            return (
-              <div class={`log-entry ${e.type} ${e.ok === false ? "fail" : ""}`}>
-                <Show when={e.type === "tool_call"}>
-                  <span class="log-tool">{e.text}</span>
-                </Show>
-                <Show when={e.type === "tool_result"}>
-                  <span class="log-result">{e.text}</span>
-                </Show>
-                <Show when={e.type === "assistant" || e.type === "done"}>
-                  <span class="log-assistant">{e.text}</span>
-                </Show>
-                <Show when={e.type === "error"}>
-                  <span class="log-error">{e.text}</span>
-                </Show>
-                <Show when={e.type === "status"}>
-                  <span class="log-status">{e.text}</span>
-                </Show>
-              </div>
-            );
-          }}
-        </For>
-      </div>
     </aside>
   );
 }

@@ -5,6 +5,7 @@ import { engine } from "../engine/engine";
 import { store } from "../stores/app";
 import { toolContext } from "./songs";
 import { strudel } from "../engine/strudel";
+import { conversation } from "./conversation";
 
 /**
  * Drives one "generate" run: Perceive (optional) → Orchestrate, writing
@@ -79,12 +80,18 @@ export async function runGenerate(): Promise<void> {
     store.showToast("Type a prompt or attach something first");
     return;
   }
-  await engine.init();
-  store.clearLog();
+  const revision = store.promptRevision();
+  store.setRunning("orchestrating");
   const handle = createRunHandle();
   activeHandle = handle;
+  let outcome: "complete" | "cancelled" | "error" = "complete";
 
   try {
+    await engine.init();
+    await conversation.begin(prompt, attachments);
+    if (store.promptRevision() === revision) store.setPrompt("");
+    store.setAttachments(store.attachments().filter((attachment) => !attachments.includes(attachment)));
+    store.clearLog();
     // Credit-aware: read the router balance and clamp the budget tier before spending.
     const credits = (await bridge()?.ditto.credits().catch(() => null)) ?? null;
     const tier = effectiveTier(credits?.balance);
@@ -100,19 +107,21 @@ export async function runGenerate(): Promise<void> {
       brief = await perceive({ provider: provider as never, model, prompt, attachments, signal: handle });
       store.setBrief(brief);
       store.pushLog({ type: "assistant", text: `Brief: ${brief.title} — ${brief.bpm} BPM, ${brief.key} ${brief.scale}; ${brief.mood.slice(0, 3).join(", ")}` });
-      if (handle.cancelled) return;
+      if (handle.cancelled) throw new Error("cancelled");
     }
 
     store.setRunning("orchestrating");
     const { provider, model, maxTurns } = resolveModel("orchestrate", tier);
     store.pushLog({ type: "status", text: `Producing with ${model || provider} (${tier})…` });
-    const summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns });
+    const history = await conversation.context();
+    const summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns, history, onMessages: conversation.messages });
     void bridge()?.ditto.credits().then((c) => store.setCredits(c)).catch(() => undefined);
     store.setStatus("");
     store.showToast(summary.length > 160 ? `${summary.slice(0, 160)}…` : summary);
     if (strudel.selected() === "tone" && !engine.isPlaying && engine.tracks.size > 0) await strudel.play();
   } catch (err) {
     const msg = (err as Error).message;
+    outcome = msg === "cancelled" ? "cancelled" : "error";
     if (msg !== "cancelled") {
       store.pushLog({ type: "error", text: msg });
       store.showToast(msg.length > 200 ? `${msg.slice(0, 200)}…` : msg);
@@ -120,6 +129,7 @@ export async function runGenerate(): Promise<void> {
       store.pushLog({ type: "status", text: "Cancelled." });
     }
   } finally {
+    await conversation.finish(outcome).catch(() => store.showToast("Chat history could not be saved. Keep this window open."));
     store.setRunning("idle");
     store.setStatus("");
     activeHandle = null;

@@ -65,7 +65,7 @@ function DittoCard() {
       store.updateSettings({ orchestrateProvider: "ditto", perceiveProvider: "ditto" });
       store.showToast("Ditto Router endpoint ready");
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(e instanceof Error ? e.message : String(e));
     }
     setBusy(null);
     await refetch();
@@ -73,7 +73,13 @@ function DittoCard() {
   }
 
   async function signOut(): Promise<void> {
-    await b?.ditto.logout();
+    setErr(null);
+    try {
+      await b?.ditto.logout();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      return;
+    }
     await refetch();
     await refreshProviders();
   }
@@ -181,8 +187,9 @@ function KeyCard(props: { provider: ProviderId; title: string; placeholder: stri
   async function save(): Promise<void> {
     const b = bridge();
     try {
-      if (b) await b.providers.setKey(props.provider, val());
-      else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, val());
+      const key = val().trim();
+      if (b) await b.providers.setKey(props.provider, key);
+      else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, key);
     } catch (e) {
       store.showToast(`Saving ${props.title} key failed: ${e instanceof Error ? e.message : String(e)}`);
       return;
@@ -193,8 +200,13 @@ function KeyCard(props: { provider: ProviderId; title: string; placeholder: stri
   }
   async function clear(): Promise<void> {
     const b = bridge();
-    if (b) await b.providers.clearKey(props.provider);
-    else localStorage.removeItem(`omnisynth.browserKey.${props.provider}`);
+    try {
+      if (b) await b.providers.clearKey(props.provider);
+      else localStorage.removeItem(`omnisynth.browserKey.${props.provider}`);
+    } catch (e) {
+      store.showToast(`Clearing ${props.title} key failed: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     await refreshProviders();
   }
   return (

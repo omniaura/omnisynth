@@ -77,7 +77,7 @@ try {
 
 if (process.argv.includes("--generate")) {
   console.log("generate… (this calls the LLM and may take minutes)");
-  const gen = await (await fetch(`${base}/generate`, { method: "POST", headers: auth, body: JSON.stringify({ prompt: "A 2-bar 128 BPM minimal techno loop: kick, offbeat hat, one dark stab. Keep it to 3 tracks.", mode: "new", source: "bridge-smoke" }) })).json();
+  const gen = await (await fetch(`${base}/generate`, { method: "POST", headers: auth, body: JSON.stringify({ prompt: "A 2-bar 128 BPM minimal techno loop: kick, offbeat hat, one dark stab. Keep it to 3 tracks.", mode: "iterate", source: "bridge-smoke" }) })).json();
   check("generate", gen.ok === true, String(gen.summary ?? gen.error).slice(0, 120));
 }
 

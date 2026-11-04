@@ -87,7 +87,10 @@ export default function ModPanel() {
                 <button class="chip" onClick={() => engine.applyRule(track, rule)} title="Evolve now">
                   ▸
                 </button>
-                <button class="chip danger" onClick={() => engine.setEvolution(track, engine.getState().tracks.find((t) => t.id === track)!.rules.filter((r) => r.id !== rule.id))} title="Remove rule">
+                <button class="chip danger" onClick={() => {
+                  const currentTrack = engine.getState().tracks.find((t) => t.id === track);
+                  if (currentTrack) engine.setEvolution(track, currentTrack.rules.filter((r) => r.id !== rule.id));
+                }} title="Remove rule">
                   ×
                 </button>
               </div>

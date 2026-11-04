@@ -739,7 +739,10 @@ export class AudioEngine {
 
     track.loop = new Tone.Loop((time) => {
       const steps = track.current.notes;
-      if (!steps || steps.length === 0) return;
+      if (!steps || steps.length === 0) {
+        this.advanceBarClock(track, subdivision);
+        return;
+      }
       const idx = track.stepIndex % steps.length;
       const pass = Math.floor(track.stepIndex / steps.length) + 1;
       const step = steps[idx];
@@ -935,7 +938,7 @@ export class AudioEngine {
   updateSection(id: string, updates: { name?: string; bars?: number; timeSignature?: [number, number] | null; bpm?: number | null }): Section {
     const s = this.sections.get(id);
     if (!s) throw new Error(`no section "${id}"`);
-    if (updates.name) s.name = updates.name;
+    if (updates.name !== undefined) s.name = updates.name;
     if (updates.bars) s.bars = updates.bars;
     if (updates.timeSignature !== undefined) s.timeSignature = updates.timeSignature ?? undefined;
     if (updates.bpm !== undefined) s.bpm = updates.bpm ?? undefined;
@@ -945,8 +948,21 @@ export class AudioEngine {
   }
 
   removeSection(id: string): void {
+    const currentId = this.getCurrentSection()?.id;
+    const removedIndex = this.arrangement.indexOf(id);
     this.sections.delete(id);
     this.arrangement = this.arrangement.filter((s) => s !== id);
+    if (currentId === id) {
+      this.currentSectionIndex = this.arrangement.length
+        ? Math.min(removedIndex, this.arrangement.length - 1)
+        : 0;
+      this.currentBar = 0;
+      this.applySectionPatterns();
+      this.applySectionTransport();
+      this.notifySection();
+    } else if (removedIndex >= 0 && removedIndex < this.currentSectionIndex) {
+      this.currentSectionIndex--;
+    }
     this.emitChange();
   }
 

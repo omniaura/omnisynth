@@ -26,6 +26,15 @@ try {
   };
   const state = async () => (await fetch(base + "/state", { headers })).json();
   await tool("add_track", { id: "tone-retained", name: "Retained Tone", instrument: "synth", subdivision: "16n", notes: '["C3",null,"Eb3",null]', volume: -18 });
+  await tool("play");
+  let toneAudio;
+  for (let i = 0; i < 50; i++) {
+    toneAudio = JSON.parse(await tool("get_audio_status"));
+    if (toneAudio.tone.tracks.some((track) => Number(track.level) > 0.001)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(toneAudio.tone.tracks.some((track) => Number(track.level) > 0.001), "Preserved Tone engine produced no signal");
+  await tool("stop");
   await tool("automate_param", { id: "preserved-automation", path: "tone-retained.volume", from: -18, to: -12, bars: 8 });
   await page.getByTestId("music-engine").selectOption("strudel");
   await page.getByTestId("strudel-panel").waitFor();
@@ -74,7 +83,12 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 1200));
   assert.equal((await state()).strudel.playing, false);
   await page.getByTestId("music-engine").selectOption("tone");
-  const tone = await state();
+  let tone;
+  for (let i = 0; i < 50; i++) {
+    tone = await state();
+    if (tone.musicEngine === "tone") break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   assert.equal(tone.musicEngine, "tone");
   assert.ok(tone.tracks.some((track) => track.id === "tone-retained"));
   assert.deepEqual(errors, []);

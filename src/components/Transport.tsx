@@ -57,17 +57,17 @@ export default function Transport(props: { onToggleView: () => void }) {
           {song.isPlaying || strudel.status().playing ? <Icon.stop /> : <Icon.play />}
         </button>
         <label class="field">
-          <span>BPM</span>
-          <input type="number" min="40" max="300" value={song.bpm} onChange={(e) => engine.setBPM(Number(e.currentTarget.value))} data-testid="bpm" />
+          <span>{strudel.selected() === "strudel" ? "Tone BPM" : "BPM"}</span>
+          <input disabled={strudel.selected() === "strudel"} type="number" min="40" max="300" value={song.bpm} onChange={(e) => engine.setBPM(Number(e.currentTarget.value))} data-testid="bpm" />
         </label>
         <label class="field">
           <span>Key</span>
-          <select value={song.key} onChange={(e) => engine.setKey(e.currentTarget.value, song.scale)} data-testid="key">
+          <select disabled={strudel.selected() === "strudel"} value={song.key} onChange={(e) => engine.setKey(e.currentTarget.value, song.scale)} data-testid="key">
             {NOTE_NAMES.map((n) => (
               <option value={n}>{n}</option>
             ))}
           </select>
-          <select value={song.scale} onChange={(e) => engine.setKey(song.key, e.currentTarget.value)} data-testid="scale">
+          <select disabled={strudel.selected() === "strudel"} value={song.scale} onChange={(e) => engine.setKey(song.key, e.currentTarget.value)} data-testid="scale">
             {SCALE_NAMES.map((s) => (
               <option value={s}>{s}</option>
             ))}
@@ -75,7 +75,7 @@ export default function Transport(props: { onToggleView: () => void }) {
         </label>
         <label class="field">
           <span>Sig</span>
-          <select value={`${song.timeSignature[0]}/${song.timeSignature[1]}`} onChange={(e) => {
+          <select disabled={strudel.selected() === "strudel"} value={`${song.timeSignature[0]}/${song.timeSignature[1]}`} onChange={(e) => {
             const [b, u] = e.currentTarget.value.split("/").map(Number);
             engine.setTimeSignature(b, u);
           }}>

@@ -39,6 +39,7 @@ export function toolDefinitions(): ChatToolDefinition[] {
     function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } },
   });
   return [
+    def("get_audio_status", "Inspect Tone audio-context state and measured per-track output, mute/solo, actual volume and last playback error. Use this to diagnose missing instruments; track presence alone does not prove audible output.", {}),
     def("evaluate_strudel", "Write and play upstream Strudel live code. Supports mini notation, stack, patterns, synths, effects and samples(). Selects Strudel and stops Tone playback without deleting Tone tracks. Returns evaluation errors for correction; use strudel_status to verify audio energy. No external samples are preloaded: start with sbd, sine, sawtooth, white. Example: setcpm(30); stack(s('sbd*4').gain(0.5), note('c3 eb3 g3 bb3').s('sine').gain(0.2))", { code: { type: "string", maxLength: 32000 } }, ["code"]),
     def("strudel_status", "Read the Strudel draft, evaluation/scheduler error, playing state, events per cycle, audio-context state, measured RMS and four frequency bands.", {}),
     def("select_music_engine", "Stop playback and choose Strudel live code or the existing Tone DAW. Switching preserves Tone tracks and the Strudel draft.", { engine: { type: "string", enum: ["tone", "strudel"] } }, ["engine"]),
@@ -587,6 +588,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     }
     case "get_state":
       return JSON.stringify(compactState(engine.getState()));
+    case "get_audio_status":
+      return JSON.stringify({ selectedEngine: strudel.selected(), tone: engine.audioStatus(), strudel: strudel.status() });
     case "done":
       return String(args.summary ?? "Done.");
     default:

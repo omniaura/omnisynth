@@ -44,6 +44,8 @@ await withCleanup(async () => {
     assert.ok(inventory.some((p) => p.name === "hydra-synth"), "Hydra source/notices missing");
     assert.ok(inventory.some((p) => p.name === "tone"), "Tone source/notices missing");
     assert.ok(inventory.some((p) => p.name === "@strudel/web"), "Strudel source/notices missing");
+    const upstream = JSON.parse(readFileSync("third-party/strudel-source.json", "utf8"));
+    assert.equal(digest(join(licensing, "upstream/strudel-source.tar.gz")), upstream.sha256, "Preferred-form Strudel source missing or mismatched");
     if (signed) {
       run("/usr/bin/codesign", ["--verify", "--deep", "--strict", "--verbose=2", app]);
       const details = spawnSync("/usr/bin/codesign", ["-dv", "--verbose=4", app], { encoding: "utf8" });

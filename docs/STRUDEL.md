@@ -29,6 +29,7 @@ provider, as with the existing DAW.
 This is an experiment, not Tone/Strudel project conversion or shared sample
 clock synchronization. The root AGPL license and packaged dependency source
 and notices cover the new integration; upstream notices are retained.
-The dependency bundle contains published npm package contents. For public
-distribution, also verify preferred-form upstream source availability for
-bundled/precompiled dependencies; this experiment does not clear that gate.
+The dependency bundle contains published npm package contents plus the
+preferred-form upstream Strudel source archive at the commit tagged for web
+1.3.0. The archive URL, commit and SHA-256 are pinned in third-party/strudel-source.json
+and verified during packaging. Public signing/distribution remains a separate gate.

@@ -50,6 +50,14 @@ def wait_for(fn, timeout=30):
 
 def stop(process):
     if process.poll() is None:
+        # Inspect each still-owned child before signalling it; never discover or
+        # kill processes by name, port or a PID read from a discovery file.
+        try:
+            cwd = Path(f"/proc/{process.pid}/cwd").resolve(strict=True)
+        except OSError:
+            print(f"inspected={process.pid} killed=0 spared=1 reason=cwd-unavailable")
+            return
+        print(f"inspected={process.pid} cwd={cwd} killed=0 spared=0 action=interrupt-owned-child")
         process.send_signal(signal.SIGINT)
         try:
             process.wait(timeout=12)
@@ -59,6 +67,7 @@ def stop(process):
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
+                print(f"inspected={process.pid} killed=1 spared=0 action=kill-owned-child-after-two-timeouts")
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:

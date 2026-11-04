@@ -97,9 +97,13 @@ export const conversation = createRoot(() => {
     await load();
     const turn: ConversationTurn = { id: crypto.randomUUID(), at: Math.max(Date.now(), (turns().at(-1)?.at ?? 0) + 1), prompt, attachments: attachments.map(({ name, kind }) => ({ name, kind })), events: [], messages: [{ role: "user", content: prompt }], outcome: "running" };
     // Save the artist's input before any inference or clearing the draft.
-    await write(turn);
-    active = turn;
     setError("");
+    try {
+      await write(turn);
+    } catch {
+      setError("Chat history could not be saved. Keep this window open and export your song.");
+    }
+    active = turn;
     setTurns((all) => [...all, turn]);
   }
 
@@ -151,13 +155,16 @@ export const conversation = createRoot(() => {
     const found = await new Promise<ConversationTurn[]>((resolve, reject) => {
       const request = database.transaction("turns").objectStore("turns").index("at").openCursor(null, "prev");
       const matches: ConversationTurn[] = [];
+      let scanned = 0;
       request.onsuccess = () => {
         const cursor = request.result;
-        if (!cursor || matches.length >= 8) { resolve(matches); return; }
+        if (!cursor || matches.length >= 8 || scanned >= 200) { resolve(matches); return; }
+        scanned++;
         const turn = cursor.value as ConversationTurn;
         const text = JSON.stringify([turn.prompt, turn.messages]).toLowerCase();
         if (turn.id !== active?.id && words.every((word) => text.includes(word))) matches.push(turn);
         cursor.continue();
+      };
       };
       request.onerror = () => reject(request.error);
     });

@@ -88,12 +88,16 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
 
   try {
     await engine.init();
-    await conversation.begin(prompt, attachments);
+    try {
+      await conversation.begin(prompt, attachments);
+    } catch {
+      // History persistence must not block generation.
+    }
     if (!input) {
       if (store.promptRevision() === revision) store.setPrompt("");
       store.setAttachments(store.attachments().filter((attachment) => !attachments.includes(attachment)));
     }
-    store.clearLog();
+    if (!input) store.clearLog();
     // Credit-aware: read the router balance and clamp the budget tier before spending.
     const credits = (await bridge()?.ditto.credits().catch(() => null)) ?? null;
     const tier = effectiveTier(credits?.balance);
@@ -123,8 +127,9 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
     store.showToast(summary.length > 160 ? `${summary.slice(0, 160)}…` : summary);
   } catch (err) {
     const msg = (err as Error).message;
-    outcome = msg === "cancelled" ? "cancelled" : "error";
+    outcome = msg === "cancelled" || handle.cancelled ? "cancelled" : "error";
     summary = outcome === "cancelled" ? "Cancelled." : msg;
+    if (outcome === "error") {
     if (msg !== "cancelled") {
       store.pushLog({ type: "error", text: msg });
       store.showToast(msg.length > 200 ? `${msg.slice(0, 200)}…` : msg);

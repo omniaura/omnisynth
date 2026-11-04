@@ -32,7 +32,7 @@ window.addEventListener("message", async (event) => {
       error = null;
       await getAudioContext().resume();
       const pattern = await evaluate(code, true) as Pattern | undefined;
-if (ticket !== generation) { message({ type: "reply", id, ok: false, error: "Superseded by a newer transport command." }); return; }
+      if (ticket !== generation) { hush(); playing = false; message({ type: "reply", id, ok: false, error: "Superseded by a newer transport command." }); return; }
       if (error || !pattern) { hush(); playing = false; throw new Error(error || "Code did not produce a Strudel pattern."); }
       events = pattern.queryArc(0, 1).length;
     } else throw new Error("Unknown Strudel action.");

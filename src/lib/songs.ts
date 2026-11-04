@@ -15,7 +15,7 @@ async function importProject(file: ProjectFile): Promise<void> {
     try {
       strudel.setCode(file.strudel.code);
     } catch {
-      // Continue importing the project if its Strudel code cannot be applied.
+      store.showToast(`Strudel code from "${file.name ?? "project"}" could not be loaded.`);
     }
   }
   await strudel.select(file.strudel?.selected ? "strudel" : "tone");

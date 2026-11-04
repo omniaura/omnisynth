@@ -365,7 +365,7 @@ function ts(args: Record<string, unknown>): [number, number] | undefined {
 }
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
-  if (name === "search_conversation_history") return conversation.search(String(args.query ?? "").slice(0, 200), args.before === undefined ? Infinity : Number(args.before));
+  if (name === "search_conversation_history") return conversation.search(String(args.query ?? "").slice(0, 200), args.before == null ? Infinity : Number(args.before));
   if (name === "read_conversation_turn") return conversation.read(String(args.id ?? ""), Number(args.offset ?? 0));
   if (name === "evaluate_strudel") {
     if (typeof args.code !== "string") return "Error: Strudel code is required.";

@@ -147,7 +147,11 @@ export async function orchestrate(opts: {
       if (handle.cancelled) throw new Error("cancelled");
       const name = call.function.name;
       if (!availableTools().some((tool) => tool.function.name === name)) {
-        messages.push({ role: "tool", tool_call_id: call.id, name, content: "Error: This tool is unavailable in an external song job." });
+        const args = parseArgs(call);
+        const result = "Error: This tool is unavailable in an external song job.";
+        onEvent({ type: "tool_call", text: describeCall(name, args), tool: name, args });
+        onEvent({ type: "tool_result", text: result, tool: name, ok: false });
+        messages.push({ role: "tool", tool_call_id: call.id, name, content: result });
         checkpoint();
         continue;
       }

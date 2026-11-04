@@ -27,7 +27,7 @@ async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; st
     engine.clear();
     store.setBrief(null);
   }
-  const result = await runGenerate({ prompt: args.prompt, attachments: args.attachments ?? [], source: args.source });
+  const result = await runGenerate({ prompt: args.prompt, attachments: args.attachments ?? [], source: typeof args.source === "string" ? args.source : undefined });
   if (result.status === "error") throw new Error(result.summary);
   return { summary: result.summary, state: compactState(engine.getState()) };
 }

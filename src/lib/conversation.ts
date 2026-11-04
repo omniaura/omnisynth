@@ -92,7 +92,7 @@ export const conversation = createRoot(() => {
       setError("Earlier messages could not be loaded. Try Earlier messages again.");
       throw cause;
     });
-    setError("");
+    setError((current) => current === "Earlier messages could not be loaded. Try Earlier messages again." ? "" : current);
     setTurns((current) => [...all, ...current]);
     setHasOlder(all.length === 40);
   }
@@ -103,7 +103,7 @@ export const conversation = createRoot(() => {
     // Save the artist's input before any inference or clearing the draft.
     await write(turn).catch((cause) => {
       setError("Your message could not be saved. Free some storage and try again; your draft is still here.");
-      throw cause;
+      throw new Error("Your message could not be saved. Free some storage and try again; your draft is still here.", { cause });
     });
     active = turn;
     setError("");
@@ -162,7 +162,7 @@ export const conversation = createRoot(() => {
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) { resolve({ matches, nextBefore: null }); return; }
-        if (matches.length >= 8 || scanned >= 200) { resolve({ matches, nextBefore: lastAt }); return; }
+        if ((matches.length >= 8 || scanned >= 200) && cursor.key !== lastAt) { resolve({ matches, nextBefore: lastAt }); return; }
         const turn = cursor.value as ConversationTurn;
         scanned++;
         lastAt = turn.at;

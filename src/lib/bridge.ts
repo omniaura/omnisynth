@@ -25,13 +25,10 @@ async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; st
     engine.clear();
     store.setBrief(null);
   }
-  store.setPrompt(args.prompt);
-  store.setAttachments(args.attachments ?? []);
   store.pushLog({ type: "status", text: `Job from ${args.source ?? "another app"}` });
-  await runGenerate();
-  const last = [...store.log()].reverse().find((e) => e.type === "done" || e.type === "error" || e.type === "assistant");
-  const summary = last?.text ?? "Done.";
-  return { summary, state: compactState(engine.getState()) };
+  const result = await runGenerate({ prompt: args.prompt, attachments: args.attachments ?? [] });
+  if (result.status === "error") throw new Error(result.summary);
+  return { summary: result.summary, state: compactState(engine.getState()) };
 }
 
 export function installBridgeHandlers(): () => void {

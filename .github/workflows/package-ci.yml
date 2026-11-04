@@ -31,6 +31,8 @@ jobs:
         run: bun run dist:unsigned
       - name: Verify DMG, ZIP and packaged UI
         run: node scripts/verify-macos.mjs --unsigned
+      - name: Verify continuing producer conversation (isolated model fixture)
+        run: node scripts/conversation-smoke.mjs .tmp/conversation-qa
       - name: Retain private QA evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -42,5 +44,7 @@ jobs:
             release/SHA256SUMS.txt
             release/provenance.json
             release/package-qa*
+            .tmp/conversation-qa/conversation.png
+            .tmp/conversation-qa/proof.json
           retention-days: 14
           if-no-files-found: error

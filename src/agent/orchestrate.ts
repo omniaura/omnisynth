@@ -48,7 +48,8 @@ Craft rules:
 - Visuals: one set_visuals call using the brief's visual palette and motion, reactive to a.fft and time.
 - Never remove tracks the artist did not ask to remove when iterating on an existing song.
 - Work in batches: at most 8 tool calls per turn, patterns of one or two bars (use sections, generate_pattern and evolution for length instead of writing 64-step arrays). Big single responses get cut off.
-- Keep going until the song is complete, then call done with a short summary for the artist. Do not reply with prose before done.`;
+- When asked to build playable music, call play after the changes are ready. Questions and discussion must not start or change playback.
+- Keep going until the requested changes are complete, then call done with a short summary. For a question, answer directly without tools.`;
 
 const STRUDEL_SYSTEM = `You are OmniSynth's electronic-music producer. The artist selected STRUDEL.
 Compose by writing genuine Strudel code and calling evaluate_strudel. This uses upstream Strudel, not Tone's step grid.

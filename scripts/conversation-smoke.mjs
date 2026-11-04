@@ -35,6 +35,7 @@ try {
   await page.getByTestId("app").waitFor();
   await page.evaluate(() => window.__omnisynth.store.updateSettings({ skipPerceive: true }));
   await page.getByTestId("music-engine").selectOption("strudel");
+  await page.getByTestId("prompt").fill("Unsent draft survives reload");
   const info = JSON.parse(readFileSync(join(profile, "bridge.json"), "utf8"));
   const base = `http://127.0.0.1:${info.port}`;
   const headers = { Authorization: `Bearer ${info.token}`, "Content-Type": "application/json" };
@@ -58,26 +59,58 @@ try {
   const beforeQuestion = JSON.parse(await tool("strudel_status"));
   await generate("Explain our earlier constraints without changing playback.");
   assert.equal(JSON.parse(await tool("strudel_status")).code, beforeQuestion.code);
+  await tool("select_music_engine", { engine: "tone" });
+  await generate("Explain our earlier constraints without starting Tone playback.");
+  assert.equal(JSON.parse(await tool("get_audio_status")).tone.playing, false);
+  await tool("select_music_engine", { engine: "strudel" });
   await generate("Recover from a syntax error and run the repaired pattern.");
   assert.equal(JSON.parse(await tool("strudel_status")).error, null);
   const cancelled = generate("Cancel this queued edit.");
   await page.getByTestId("cancel").waitFor();
   await page.getByTestId("cancel").click();
   await cancelled;
-  assert.equal(await page.getByTestId("chat-turn").count(), 5);
+  assert.equal(await page.getByTestId("chat-turn").count(), 6);
   await page.getByText("Stopped. Send another message to continue.").waitFor();
   await tool("stop");
   const state = await fetch(base + "/state", { headers }).then((response) => response.json());
   assert.ok(state.tracks.some((track) => track.id === "retained"));
-  await page.getByTestId("prompt").fill("Unsent draft survives reload");
+  assert.equal(await page.getByTestId("prompt").inputValue(), "Unsent draft survives reload", "A bridge job overwrote an unsent artist draft");
   await page.reload();
-  await page.getByTestId("chat-turn").nth(4).waitFor();
-  assert.equal(await page.getByTestId("chat-turn").count(), 5);
+  await page.getByTestId("chat-turn").nth(5).waitFor();
+  assert.equal(await page.getByTestId("chat-turn").count(), 6);
+  assert.equal(await page.getByTestId("music-engine").inputValue(), "strudel");
   assert.equal(await page.getByTestId("prompt").inputValue(), "Unsent draft survives reload");
   await page.getByText("Build Cedar in C minor, no reverb.", { exact: true }).waitFor();
   await page.getByTestId("composer").screenshot({ path: join(out, "conversation.png") });
+  await page.evaluate(async () => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("omnisynth-conversation", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = database.transaction("turns", "readwrite");
+      for (let i = 0; i < 55; i++) tx.objectStore("turns").put({ id: "archive-" + i, at: 1000 + i, prompt: "Archived melody number " + i, attachments: [], events: [{ type: "assistant", text: "Kept earlier melody " + i }], messages: [{ role: "user", content: "Archived melody number " + i }, { role: "assistant", content: "Kept earlier melody " + i }], outcome: "complete" });
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    database.close();
+  });
+  const found = JSON.parse(await tool("search_conversation_history", { query: "Archived melody number 17" }));
+  assert.equal(found[0].id, "archive-17");
+  assert.match(await tool("read_conversation_turn", { id: found[0].id }), /Kept earlier melody 17/);
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="chat-turn"]').length === 40);
+  const earlier = page.getByRole("button", { name: "Earlier messages" });
+  await earlier.scrollIntoViewIfNeeded();
+  const anchor = page.getByTestId("chat-turn").first();
+  const anchorID = await anchor.getAttribute("data-turn");
+  const top = (await anchor.boundingBox()).y;
+  await earlier.click();
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="chat-turn"]').length === 61);
+  await page.waitForFunction(({ anchorID, top }) => Math.abs(document.querySelector(`[data-turn="${anchorID}"]`).getBoundingClientRect().top - top) < 2, { anchorID, top });
   assert.deepEqual(errors, []);
-  writeFileSync(join(out, "proof.json"), JSON.stringify({ passed: true, checks: ["multi-turn context", "tool transcript replay", "question without mutation", "syntax recovery", "cancel", "reload history", "reload draft", "Tone preservation"], limitations: ["Deterministic model fixture; actual model prompt QA is separate"] }, null, 2));
+  writeFileSync(join(out, "proof.json"), JSON.stringify({ passed: true, checks: ["multi-turn context", "tool transcript replay", "question without mutation or auto-play", "syntax recovery", "cancel", "reload history", "reload draft and engine", "bridge draft preservation", "61-turn archive", "older history search", "older message scroll anchor", "Tone preservation"], limitations: ["Deterministic model fixture; actual model prompt QA is separate"] }, null, 2));
   console.log("Conversation native smoke passed.");
 } catch (error) {
   try { await (await app.firstWindow()).screenshot({ path: join(out, "failure.png") }); } catch {}

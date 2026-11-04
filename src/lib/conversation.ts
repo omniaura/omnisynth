@@ -116,6 +116,8 @@ export const conversation = createRoot(() => {
 
   async function finish(outcome: ConversationTurn["outcome"]): Promise<void> {
     if (!active) return;
+    const summary = active.events.filter((event) => event.type === "done" || event.type === "assistant").at(-1)?.text;
+    if (outcome === "complete" && summary && active.messages.at(-1)?.content !== summary) active.messages = [...active.messages, { role: "assistant", content: summary }];
     active.outcome = outcome;
     persist();
     active = undefined;
@@ -168,7 +170,7 @@ export const conversation = createRoot(() => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    return turn ? JSON.stringify({ prompt: turn.prompt, messages: turn.messages }).slice(0, 24000) : "No conversation turn with that id.";
+    return turn ? JSON.stringify({ prompt: turn.prompt, messages: turn.messages, outcome: turn.outcome }).slice(0, 24000) : "No conversation turn with that id.";
   }
 
   return { turns, hasOlder, error, load, older, begin, event, messages, finish, context, search, read };

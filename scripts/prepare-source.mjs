@@ -1,5 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 // Package the actual checkout and installed production closure. Never sweep a
 // workspace, home directory, local profile or environment file into an archive.
@@ -7,7 +9,7 @@ export function prepareSource(destination, root = process.cwd()) {
   root = realpathSync(root);
   const source = join(destination, "source");
   mkdirSync(source, { recursive: true });
-  const entries = ["src", "electron", "shared", "docs", "scripts", "build", "assets", "public", ".github",
+  const entries = ["src", "electron", "shared", "strudel", "vite.strudel.config.ts", "docs", "scripts", "build", "assets", "public", ".github",
     "LICENSE", "README.md", "third-party", "package.json", "bun.lock", "tsconfig.json",
     "tsconfig.node.json", "vite.config.ts", "electron-builder.json"];
   const excluded = new Set([".git", "node_modules", ".tmp", ".env", ".npmrc", ".DS_Store"]);
@@ -35,6 +37,17 @@ export function prepareSource(destination, root = process.cwd()) {
     }
   };
   const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  if (rootPackage.dependencies?.["@strudel/web"]) {
+    const upstream = JSON.parse(readFileSync(join(root, "third-party/strudel-source.json"), "utf8"));
+    if (rootPackage.dependencies["@strudel/web"] !== upstream.version) throw new Error("Update the preferred-form Strudel source pin with the package version.");
+    const cache = join(root, ".tmp/upstream", "strudel-" + upstream.commit + ".tar.gz");
+    mkdirSync(dirname(cache), { recursive: true });
+    if (!existsSync(cache)) execFileSync("curl", ["--fail", "--location", "--silent", "--show-error", "--max-time", "60", upstream.url, "-o", cache], { timeout: 65000, stdio: "inherit" });
+    const digest = createHash("sha256").update(readFileSync(cache)).digest("hex");
+    if (digest !== upstream.sha256) throw new Error("Preferred-form Strudel source checksum mismatch.");
+    mkdirSync(join(destination, "upstream"), { recursive: true });
+    cpSync(cache, join(destination, "upstream/strudel-source.tar.gz"));
+  }
   const optionalDependencies = rootPackage.optionalDependencies ?? {};
   const pending = Object.entries({ ...rootPackage.dependencies, ...optionalDependencies }).map(([name]) => ({
     name, from: root, optional: Object.hasOwn(optionalDependencies, name),

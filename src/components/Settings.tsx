@@ -83,7 +83,6 @@ function DittoCard() {
     await refetch();
     await refreshProviders();
   }
-  }
 
   return (
     <div class="card" data-testid="ditto-card">

@@ -50,6 +50,8 @@ interface Track {
   patchFxCount: number;
   panner: Tone.Panner;
   channel: Tone.Volume;
+  meter: Tone.Meter;
+  playbackError: string | null;
   loop: Tone.Loop;
   current: Pattern;
   /** Pattern the track was created with (evolution seed / reset). */
@@ -65,6 +67,7 @@ interface Track {
 }
 
 export interface TrackState {
+  isDrum: boolean;
   id: string;
   name: string;
   instrument: string;
@@ -113,6 +116,7 @@ export interface SongFile {
   customPatches: Array<Patch & { id: string }>;
   masterFx?: EffectConfig[];
   modulations?: Modulation[];
+  automations?: Automation[];
   macros?: Record<string, number>;
   visuals?: string;
 }
@@ -705,6 +709,8 @@ export class AudioEngine {
     }
     const panner = new Tone.Panner(config.pan ?? 0);
     const channel = new Tone.Volume(config.volume ?? -8);
+    const meter = new Tone.Meter({ normalRange: true, smoothing: 0.3 });
+    channel.connect(meter);
     const chain: Tone.ToneAudioNode[] = [synth, ...effects, panner, channel];
     for (let i = 0; i < chain.length - 1; i++) chain[i].connect(chain[i + 1]);
     channel.connect(this.master);
@@ -723,6 +729,8 @@ export class AudioEngine {
       patchFxCount,
       panner,
       channel,
+      meter,
+      playbackError: null,
       current: config.pattern,
       seed,
       muted: false,
@@ -781,6 +789,7 @@ export class AudioEngine {
           }
         }
       } catch (err) {
+        track.playbackError = (err as Error).message;
         console.warn(`Track ${config.id} playback error:`, (err as Error).message);
       }
     }, subdivision);
@@ -852,6 +861,7 @@ export class AudioEngine {
     track.effects.forEach((n) => n.dispose());
     track.panner.dispose();
     track.channel.dispose();
+    track.meter.dispose();
     this.tracks.delete(id);
     this.mods.invalidate();
     if (!keepMods) {
@@ -901,8 +911,21 @@ export class AudioEngine {
     this.emitChange();
   }
 
+  audioStatus(): Record<string, unknown> {
+    return {
+      context: this.started ? Tone.getContext().state : "uninitialized",
+      playing: this.isPlaying,
+      tracks: [...this.tracks.values()].map((track) => ({
+        id: track.config.id, instrument: track.config.instrument,
+        muted: track.muted, solo: track.solo, volume: track.channel.volume.value,
+        level: track.meter.getValue(), lastPlaybackError: track.playbackError,
+      })),
+    };
+  }
+
   private trackState(t: Track): TrackState {
     return {
+      isDrum: t.isDrum,
       id: t.config.id,
       name: t.config.name,
       instrument: t.config.instrument,
@@ -1170,6 +1193,7 @@ export class AudioEngine {
       modulations: this.mods.list(),
       macros: Object.fromEntries(this.mods.macros),
       visuals,
+      automations: [...this.mods.automations.values()],
     };
   }
 
@@ -1217,6 +1241,13 @@ export class AudioEngine {
         console.warn("skip modulation", m.id, (err as Error).message);
       }
     }
+      for (const automation of song.automations ?? []) {
+        try {
+          this.mods.addAutomation(automation, 0);
+        } catch (err) {
+          console.warn("skip automation", automation.id, (err as Error).message);
+        }
+      }
     this.applySectionPatterns();
     this.emitChange();
   }

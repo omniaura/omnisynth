@@ -4,6 +4,7 @@ import { bridge, detectProviders } from "../agent/client";
 import { engine } from "../engine/engine";
 import { store } from "../stores/app";
 import { toolContext } from "./songs";
+import { conversation } from "./conversation";
 
 /**
  * Drives one "generate" run: Perceive (optional) → Orchestrate, writing
@@ -70,27 +71,37 @@ export function cancelRun(): void {
   activeHandle?.cancel();
 }
 
-export async function runGenerate(): Promise<void> {
-  if (store.running() !== "idle") return;
-  const prompt = store.prompt();
-  const attachments = store.attachments();
+export async function runGenerate(input?: { prompt: string; attachments?: import("../../shared/ipc").Attachment[]; source?: string }): Promise<{ status: "complete" | "cancelled" | "error"; summary: string }> {
+  if (store.running() !== "idle") return { status: "error", summary: "OmniSynth is already working. Wait or stop the current turn." };
+  const prompt = input?.prompt ?? store.prompt();
+  const attachments = input?.attachments ?? store.attachments();
   if (!prompt.trim() && attachments.length === 0) {
     store.showToast("Type a prompt or attach something first");
-    return;
+    return { status: "error", summary: "Type a prompt or attach something first." };
   }
-  await engine.init();
-  store.clearLog();
+  const revision = store.promptRevision();
+  store.setRunning("orchestrating");
   const handle = createRunHandle();
   activeHandle = handle;
+  let outcome: "complete" | "cancelled" | "error" = "complete";
+  let summary = "";
 
   try {
+    await engine.init();
+    await conversation.begin(prompt, attachments);
+    if (!input) {
+      if (store.promptRevision() === revision) store.setPrompt("");
+      store.setAttachments(store.attachments().filter((attachment) => !attachments.includes(attachment)));
+    }
+    store.clearLog();
+    if (input) store.pushLog({ type: "status", text: `Job from ${(input.source || "another app").slice(0, 80)}` });
     // Credit-aware: read the router balance and clamp the budget tier before spending.
     const credits = (await bridge()?.ditto.credits().catch(() => null)) ?? null;
     const tier = effectiveTier(credits?.balance);
     store.setCredits(credits ?? null);
     if (tier !== store.settings.budget) store.pushLog({ type: "status", text: `Balance ${credits?.balance?.toFixed(2)} ${credits?.currency ?? ""} — running ${tier} instead of ${store.settings.budget}` });
 
-    let brief = store.brief();
+    let brief = input ? null : store.brief();
     const wantsPerceive = !store.settings.skipPerceive && (attachments.length > 0 || !brief);
     if (wantsPerceive) {
       store.setRunning("perceiving");
@@ -99,28 +110,33 @@ export async function runGenerate(): Promise<void> {
       brief = await perceive({ provider: provider as never, model, prompt, attachments, signal: handle });
       store.setBrief(brief);
       store.pushLog({ type: "assistant", text: `Brief: ${brief.title} — ${brief.bpm} BPM, ${brief.key} ${brief.scale}; ${brief.mood.slice(0, 3).join(", ")}` });
-      if (handle.cancelled) return;
+        if (!input) store.setBrief(brief);
     }
 
     store.setRunning("orchestrating");
     const { provider, model, maxTurns } = resolveModel("orchestrate", tier);
     store.pushLog({ type: "status", text: `Producing with ${model || provider} (${tier})…` });
-    const summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns });
+    const history = input ? [] : await conversation.context();
+    summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns, history, allowHistory: !input, onMessages: conversation.messages });
+    if (!store.log().some((event) => (event.type === "done" || event.type === "assistant") && event.text === summary)) store.pushLog({ type: "assistant", text: summary });
     void bridge()?.ditto.credits().then((c) => store.setCredits(c)).catch(() => undefined);
     store.setStatus("");
     store.showToast(summary.length > 160 ? `${summary.slice(0, 160)}…` : summary);
-    if (!engine.isPlaying && engine.tracks.size > 0) await engine.play();
   } catch (err) {
     const msg = (err as Error).message;
-    if (msg !== "cancelled") {
+    outcome = handle.cancelled || msg === "cancelled" ? "cancelled" : "error";
+    summary = outcome === "cancelled" ? "Cancelled." : msg;
+    if (outcome !== "cancelled") {
       store.pushLog({ type: "error", text: msg });
       store.showToast(msg.length > 200 ? `${msg.slice(0, 200)}…` : msg);
     } else {
       store.pushLog({ type: "status", text: "Cancelled." });
     }
   } finally {
+    await conversation.finish(outcome).catch(() => store.showToast("Chat history could not be saved. Keep this window open."));
     store.setRunning("idle");
     store.setStatus("");
     activeHandle = null;
   }
+  return { status: outcome, summary };
 }

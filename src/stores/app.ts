@@ -4,6 +4,7 @@ import type { Attachment, CreditSnapshot, ProviderId, ProviderInfo } from "../..
 import { engine, type SongState } from "../engine/engine";
 import type { Brief } from "../agent/perceive";
 import type { RunEvent } from "../agent/orchestrate";
+import { conversation } from "../lib/conversation";
 
 /** Renderer-wide reactive state. Engine state is mirrored here via engine.onChange. */
 
@@ -67,6 +68,7 @@ export const store = createRoot(() => {
   const [view, setView] = createSignal<"studio" | "visualizer">("studio");
   const [credits, setCredits] = createSignal<CreditSnapshot | null>(null);
   let logId = 0;
+  let promptRevision = 0;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   engine.onChange((state) => setSong(reconcile(state)));
@@ -95,6 +97,7 @@ export const store = createRoot(() => {
   }
 
   function pushLog(e: RunEvent): void {
+    conversation.event(e);
     setLog((l) => [...l.slice(-199), { ...e, id: logId++, at: Date.now() }]);
     if (e.type === "status") setStatus(e.text);
   }
@@ -106,6 +109,7 @@ export const store = createRoot(() => {
   }
 
   function savePrompt(p: string): void {
+    promptRevision++;
     setPrompt(p);
     localStorage.setItem("omnisynth.prompt", p);
   }
@@ -119,6 +123,7 @@ export const store = createRoot(() => {
     setAttachments,
     prompt,
     setPrompt: savePrompt,
+    promptRevision: () => promptRevision,
     brief,
     setBrief,
     log,

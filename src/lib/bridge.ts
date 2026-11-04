@@ -6,6 +6,8 @@ import { store } from "../stores/app";
 import { runGenerate } from "./run";
 import { toolContext } from "./songs";
 
+const privateHistoryTool = (name: string) => name === "search_conversation_history" || name === "read_conversation_turn";
+
 /**
  * Renderer side of the OmniSynth bridge: executes requests that arrive from
  * other local apps (Ditto Desktop) through the main process, and accepts
@@ -25,13 +27,9 @@ async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; st
     engine.clear();
     store.setBrief(null);
   }
-  store.setPrompt(args.prompt);
-  store.setAttachments(args.attachments ?? []);
-  store.pushLog({ type: "status", text: `Job from ${args.source ?? "another app"}` });
-  await runGenerate();
-  const last = [...store.log()].reverse().find((e) => e.type === "done" || e.type === "error" || e.type === "assistant");
-  const summary = last?.text ?? "Done.";
-  return { summary, state: compactState(engine.getState()) };
+  const result = await runGenerate({ prompt: args.prompt, attachments: args.attachments ?? [], source: typeof args.source === "string" ? args.source : undefined });
+  if (result.status === "error") throw new Error(result.summary);
+  return { summary: result.summary, state: compactState(engine.getState()) };
 }
 
 export function installBridgeHandlers(): () => void {
@@ -40,11 +38,15 @@ export function installBridgeHandlers(): () => void {
   const offCall = b.bridge.onCall(async (call: BridgeCall) => {
     switch (call.kind) {
       case "tools":
-        return toolDefinitions().map((t) => ({ name: t.function.name, description: t.function.description, parameters: t.function.parameters }));
+        return toolDefinitions().filter((t) => !privateHistoryTool(t.function.name)).map((t) => ({ name: t.function.name, description: t.function.description, parameters: t.function.parameters }));
       case "state":
         await engine.init();
         return compactState(engine.getState());
       case "tool": {
+        if (store.running() === "idle") {
+          store.pushLog({ type: "tool_call", text: `${call.name} (via bridge)`, tool: call.name });
+          store.pushLog({ type: "tool_result", text: result.length > 300 ? `${result.slice(0, 300)}…` : result, tool: call.name, ok: true });
+        }
         await engine.init();
         const result = await executeTool(call.name ?? "", (call.args as Record<string, unknown>) ?? {}, toolContext);
         if (result.startsWith("Error")) throw new Error(result.replace(/^Error:?\s*/, ""));

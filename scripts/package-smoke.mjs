@@ -47,6 +47,23 @@ try {
   assert.equal((await fetch(`${base}/tools`, { headers: { Authorization: `Bearer ${info.token}`, Origin: "https://example.invalid" } })).status, 403);
   const state = await (await fetch(`${base}/state`, { headers: { Authorization: `Bearer ${info.token}` } })).json();
   assert.ok(state.tracks.some((track) => track.id === "track-1"));
+  const tool = async (name, args = {}) => {
+    const response = await fetch(`${base}/tools/${name}`, { method: "POST", headers: { Authorization: `Bearer ${info.token}`, "Content-Type": "application/json" }, body: JSON.stringify(args) });
+    return response.json();
+  };
+  await page.getByTestId("music-engine").selectOption("strudel");
+  assert.equal((await tool("evaluate_strudel", { code: "stack(" })).ok, false);
+  const evaluated = await tool("evaluate_strudel", { code: 'setcpm(30); note("c3 eb3 g3 bb3").s("sine").gain(0.2)' });
+  assert.equal(evaluated.ok, true, evaluated.error);
+  assert.equal(JSON.parse(evaluated.result).playing, true);
+  const audioFrame = page.frames().find((frame) => frame.url().includes("/strudel/index.html"));
+  assert.ok(audioFrame, "Packaged Strudel frame did not load");
+  assert.equal(await audioFrame.evaluate(() => typeof window.omnisynth), "undefined");
+  const strudelState = await (await fetch(`${base}/state`, { headers: { Authorization: `Bearer ${info.token}` } })).json();
+  assert.equal(strudelState.musicEngine, "strudel");
+  assert.ok(strudelState.tracks.some((track) => track.id === "track-1"));
+    assert.equal((await tool("stop")).ok, true);
+  await page.getByTestId("music-engine").selectOption("tone");
   mkdirSync("release", { recursive: true });
   await page.screenshot({ path: "release/package-qa.png" });
   await page.evaluate(() => localStorage.setItem("omnisynth.release-qa", "profile persists"));

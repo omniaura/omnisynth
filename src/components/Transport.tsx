@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { engine } from "../engine/engine";
 import { store } from "../stores/app";
+import { strudel } from "../engine/strudel";
 import { NOTE_NAMES, SCALE_NAMES } from "../engine/presets";
 import { exportSongFile, importSongFile, saveSong } from "../lib/songs";
 
@@ -28,8 +29,8 @@ export default function Transport(props: { onToggleView: () => void }) {
   const provider = () => store.providers().find((p) => p.id === store.settings.orchestrateProvider);
 
   async function toggle(): Promise<void> {
-    if (song.isPlaying) engine.stop();
-    else await engine.play();
+    if (song.isPlaying || strudel.status().playing) await strudel.stop();
+    else await strudel.play();
   }
 
   return (
@@ -49,21 +50,24 @@ export default function Transport(props: { onToggleView: () => void }) {
       </div>
 
       <div class="transport-center">
-        <button class={`btn-play ${song.isPlaying ? "playing" : ""}`} onClick={toggle} title={song.isPlaying ? "Stop (Space)" : "Play (Space)"} data-testid="play">
-          {song.isPlaying ? <Icon.stop /> : <Icon.play />}
+        <select aria-label="Music engine" value={strudel.selected()} onChange={(event) => void strudel.select(event.currentTarget.value as "tone" | "strudel")} data-testid="music-engine">
+          <option value="tone">Tone DAW</option><option value="strudel">Strudel</option>
+        </select>
+        <button class={`btn-play ${song.isPlaying || strudel.status().playing ? "playing" : ""}`} onClick={() => void toggle().catch((error) => store.showToast(error.message))} title={song.isPlaying || strudel.status().playing ? "Stop (Space)" : "Play (Space)"} data-testid="play">
+          {song.isPlaying || strudel.status().playing ? <Icon.stop /> : <Icon.play />}
         </button>
         <label class="field">
-          <span>BPM</span>
-          <input type="number" min="40" max="300" value={song.bpm} onChange={(e) => engine.setBPM(Number(e.currentTarget.value))} data-testid="bpm" />
+          <span>{strudel.selected() === "strudel" ? "Tone BPM" : "BPM"}</span>
+          <input disabled={strudel.selected() === "strudel"} type="number" min="40" max="300" value={song.bpm} onChange={(e) => engine.setBPM(Number(e.currentTarget.value))} data-testid="bpm" />
         </label>
         <label class="field">
           <span>Key</span>
-          <select value={song.key} onChange={(e) => engine.setKey(e.currentTarget.value, song.scale)} data-testid="key">
+          <select disabled={strudel.selected() === "strudel"} value={song.key} onChange={(e) => engine.setKey(e.currentTarget.value, song.scale)} data-testid="key">
             {NOTE_NAMES.map((n) => (
               <option value={n}>{n}</option>
             ))}
           </select>
-          <select value={song.scale} onChange={(e) => engine.setKey(song.key, e.currentTarget.value)} data-testid="scale">
+          <select disabled={strudel.selected() === "strudel"} value={song.scale} onChange={(e) => engine.setKey(song.key, e.currentTarget.value)} data-testid="scale">
             {SCALE_NAMES.map((s) => (
               <option value={s}>{s}</option>
             ))}
@@ -71,7 +75,7 @@ export default function Transport(props: { onToggleView: () => void }) {
         </label>
         <label class="field">
           <span>Sig</span>
-          <select value={`${song.timeSignature[0]}/${song.timeSignature[1]}`} onChange={(e) => {
+          <select disabled={strudel.selected() === "strudel"} value={`${song.timeSignature[0]}/${song.timeSignature[1]}`} onChange={(e) => {
             const [b, u] = e.currentTarget.value.split("/").map(Number);
             engine.setTimeSignature(b, u);
           }}>

@@ -158,7 +158,13 @@ export class Bridge {
 
   private async handle(req: IncomingMessage, res: ServerResponse, token: string): Promise<void> {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    if (req.method === "GET" && url.pathname.startsWith("/strudel/")) return serveStrudel(url.pathname, res);
+    if (req.method === "GET" && url.pathname.startsWith("/strudel/")) {
+      const site = req.headers["sec-fetch-site"];
+      if (req.headers.host !== `127.0.0.1:${this.info?.port}` || (site !== "none" && site !== "same-origin")) {
+        return json(res, 403, { error: "forbidden_origin" });
+      }
+      return serveStrudel(url.pathname, res);
+    }
     res.setHeader("Cache-Control", "no-store");
     // Loopback only; still refuse browser cross-origin use so a web page can't drive the DAW.
     if (req.headers.origin) return json(res, 403, { error: "forbidden_origin" });

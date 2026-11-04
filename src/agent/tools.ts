@@ -371,7 +371,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     if (args.engine !== "tone" && args.engine !== "strudel") return "Error: choose tone or strudel.";
     await strudel.select(args.engine);
     return `Selected ${args.engine}; playback stopped, both projects preserved.`;
-  }
+  if (name === "get_audio_status") return JSON.stringify({ selectedEngine: strudel.selected(), tone: engine.audioStatus(), strudel: strudel.status() });
+  await engine.init();
   await engine.init();
   switch (name) {
     case "set_bpm": {

@@ -62,7 +62,7 @@ try {
   const strudelState = await (await fetch(`${base}/state`, { headers: { Authorization: `Bearer ${info.token}` } })).json();
   assert.equal(strudelState.musicEngine, "strudel");
   assert.ok(strudelState.tracks.some((track) => track.id === "track-1"));
-  await tool("stop");
+    assert.equal((await tool("stop")).ok, true);
   await page.getByTestId("music-engine").selectOption("tone");
   mkdirSync("release", { recursive: true });
   await page.screenshot({ path: "release/package-qa.png" });

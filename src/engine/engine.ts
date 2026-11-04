@@ -1241,7 +1241,13 @@ export class AudioEngine {
         console.warn("skip modulation", m.id, (err as Error).message);
       }
     }
-    for (const automation of song.automations ?? []) this.mods.addAutomation(automation, 0);
+      for (const automation of song.automations ?? []) {
+        try {
+          this.mods.addAutomation(automation, 0);
+        } catch (err) {
+          console.warn("skip automation", automation.id, (err as Error).message);
+        }
+      }
     this.applySectionPatterns();
     this.emitChange();
   }

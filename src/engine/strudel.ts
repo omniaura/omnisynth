@@ -95,7 +95,17 @@ export async function stopStrudel(): Promise<void> {
   if (frame) {
     try { await request("stop", undefined, ticket); }
     catch {
-      if (revision === ticket && frame === ownedFrame) { removeListener(); frame?.remove(); frame = null; ready = null; }
+      if (revision === ticket && frame === ownedFrame) {
+        for (const call of pending.values()) {
+          clearTimeout(call.timer);
+          call.reject(new Error("Strudel frame was reset."));
+        }
+        pending.clear();
+        removeListener();
+        frame?.remove();
+        frame = null;
+        ready = null;
+      }
     }
   }
   if (revision === ticket) setStatus((state) => ({ ...state, playing: false, rms: 0, bands: [0, 0, 0, 0] }));

@@ -71,7 +71,7 @@ export function cancelRun(): void {
   activeHandle?.cancel();
 }
 
-export async function runGenerate(input?: { prompt: string; attachments?: import("../../shared/ipc").Attachment[] }): Promise<{ status: "complete" | "cancelled" | "error"; summary: string }> {
+export async function runGenerate(input?: { prompt: string; attachments?: import("../../shared/ipc").Attachment[]; source?: string }): Promise<{ status: "complete" | "cancelled" | "error"; summary: string }> {
   if (store.running() !== "idle") return { status: "error", summary: "OmniSynth is already working. Wait or stop the current turn." };
   const prompt = input?.prompt ?? store.prompt();
   const attachments = input?.attachments ?? store.attachments();
@@ -94,13 +94,14 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
       store.setAttachments(store.attachments().filter((attachment) => !attachments.includes(attachment)));
     }
     store.clearLog();
+    if (input) store.pushLog({ type: "status", text: `Job from ${(input.source || "another app").slice(0, 80)}` });
     // Credit-aware: read the router balance and clamp the budget tier before spending.
     const credits = (await bridge()?.ditto.credits().catch(() => null)) ?? null;
     const tier = effectiveTier(credits?.balance);
     store.setCredits(credits ?? null);
     if (tier !== store.settings.budget) store.pushLog({ type: "status", text: `Balance ${credits?.balance?.toFixed(2)} ${credits?.currency ?? ""} — running ${tier} instead of ${store.settings.budget}` });
 
-    let brief = store.brief();
+    let brief = input ? null : store.brief();
     const wantsPerceive = !store.settings.skipPerceive && attachments.length > 0;
     if (wantsPerceive) {
       store.setRunning("perceiving");
@@ -115,17 +116,17 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
     store.setRunning("orchestrating");
     const { provider, model, maxTurns } = resolveModel("orchestrate", tier);
     store.pushLog({ type: "status", text: `Producing with ${model || provider} (${tier})…` });
-    const history = await conversation.context();
-    summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns, history, onMessages: conversation.messages });
+    const history = input ? [] : await conversation.context();
+    summary = await orchestrate({ provider: provider as never, model, prompt, brief, ctx: toolContext, onEvent: store.pushLog, handle, maxTurns, history, allowHistory: !input, onMessages: conversation.messages });
     if (!store.log().some((event) => (event.type === "done" || event.type === "assistant") && event.text === summary)) store.pushLog({ type: "assistant", text: summary });
     void bridge()?.ditto.credits().then((c) => store.setCredits(c)).catch(() => undefined);
     store.setStatus("");
     store.showToast(summary.length > 160 ? `${summary.slice(0, 160)}…` : summary);
   } catch (err) {
     const msg = (err as Error).message;
-    outcome = msg === "cancelled" ? "cancelled" : "error";
+    outcome = handle.cancelled || msg === "cancelled" ? "cancelled" : "error";
     summary = outcome === "cancelled" ? "Cancelled." : msg;
-    if (msg !== "cancelled") {
+    if (outcome !== "cancelled") {
       store.pushLog({ type: "error", text: msg });
       store.showToast(msg.length > 200 ? `${msg.slice(0, 200)}…` : msg);
     } else {

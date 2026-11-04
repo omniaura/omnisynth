@@ -6,6 +6,8 @@ import { store } from "../stores/app";
 import { runGenerate } from "./run";
 import { toolContext } from "./songs";
 
+const privateHistoryTool = (name: string) => name === "search_conversation_history" || name === "read_conversation_turn";
+
 /**
  * Renderer side of the OmniSynth bridge: executes requests that arrive from
  * other local apps (Ditto Desktop) through the main process, and accepts
@@ -25,8 +27,7 @@ async function generate(args: BridgeGenerateArgs): Promise<{ summary: string; st
     engine.clear();
     store.setBrief(null);
   }
-  store.pushLog({ type: "status", text: `Job from ${args.source ?? "another app"}` });
-  const result = await runGenerate({ prompt: args.prompt, attachments: args.attachments ?? [] });
+  const result = await runGenerate({ prompt: args.prompt, attachments: args.attachments ?? [], source: args.source });
   if (result.status === "error") throw new Error(result.summary);
   return { summary: result.summary, state: compactState(engine.getState()) };
 }
@@ -37,11 +38,12 @@ export function installBridgeHandlers(): () => void {
   const offCall = b.bridge.onCall(async (call: BridgeCall) => {
     switch (call.kind) {
       case "tools":
-        return toolDefinitions().map((t) => ({ name: t.function.name, description: t.function.description, parameters: t.function.parameters }));
+        return toolDefinitions().filter((t) => !privateHistoryTool(t.function.name)).map((t) => ({ name: t.function.name, description: t.function.description, parameters: t.function.parameters }));
       case "state":
         await engine.init();
         return compactState(engine.getState());
       case "tool": {
+        if (privateHistoryTool(call.name ?? "")) throw new Error("Conversation history is private to the local Producer chat.");
         await engine.init();
         const result = await executeTool(call.name ?? "", (call.args as Record<string, unknown>) ?? {}, toolContext);
         if (result.startsWith("Error")) throw new Error(result.replace(/^Error:?\s*/, ""));

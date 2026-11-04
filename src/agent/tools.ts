@@ -40,7 +40,7 @@ export function toolDefinitions(): ChatToolDefinition[] {
     function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } },
   });
   return [
-    def("search_conversation_history", "Search older messages in this local OmniSynth conversation when the artist refers to an earlier idea, name or constraint. Returns matching turn ids, prompts and responses.", { query: { type: "string", maxLength: 200 } }, ["query"]),
+    def("search_conversation_history", "Search this local conversation for an earlier idea or constraint. Returns matches and nextBefore; if more history remains, pass nextBefore as before to continue. Each call scans at most 200 turns.", { query: { type: "string", maxLength: 200 }, before: { type: "number", minimum: 0 } }, ["query"]),
     def("read_conversation_turn", "Read a previous local conversation turn by id. Long turns return nextOffset; pass it as offset to continue reading.", { id: { type: "string" }, offset: { type: "integer", minimum: 0 } }, ["id"]),
     def("get_audio_status", "Inspect Tone audio-context state and measured per-track output, mute/solo, actual volume and last playback error. Use this to diagnose missing instruments; track presence alone does not prove audible output.", {}),
     def("evaluate_strudel", "Write and play upstream Strudel live code. Supports mini notation, stack, patterns, synths, effects and samples(). Selects Strudel and stops Tone playback without deleting Tone tracks. Returns evaluation errors for correction; use strudel_status to verify audio energy. No external samples are preloaded: start with sbd, sine, sawtooth, white. Example: setcpm(30); stack(s('sbd*4').gain(0.5), note('c3 eb3 g3 bb3').s('sine').gain(0.2))", { code: { type: "string", maxLength: 32000 } }, ["code"]),
@@ -365,7 +365,7 @@ function ts(args: Record<string, unknown>): [number, number] | undefined {
 }
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
-  if (name === "search_conversation_history") return conversation.search(String(args.query ?? "").slice(0, 200));
+  if (name === "search_conversation_history") return conversation.search(String(args.query ?? "").slice(0, 200), args.before === undefined ? Infinity : Number(args.before));
   if (name === "read_conversation_turn") return conversation.read(String(args.id ?? ""), Number(args.offset ?? 0));
   if (name === "evaluate_strudel") {
     if (typeof args.code !== "string") return "Error: Strudel code is required.";

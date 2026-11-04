@@ -10,9 +10,17 @@ The visible timeline loads recent turns and offers Earlier messages. The model
 gets complete recent tool-call/result batches within a bounded context window.
 Large transcripts are condensed in the model window; the originals remain on
 disk. `search_conversation_history` scans older turns and
-`read_conversation_turn` retrieves a selected exchange. Storage is limited by the
+`read_conversation_turn` retrieves a selected exchange. Searches page through
+200 turns per call; reads page through long transcripts. Storage is limited by the
 device, rather than by a fixed conversation-turn limit. Storage failures are
 shown explicitly. Cancelling or reopening never resumes an action automatically.
+An initial save failure keeps the draft and stops the turn before inference;
+the app does not silently discard the message's durability guarantee.
+
+External bridge jobs receive the supplied prompt and current song. They do not
+receive previous Producer messages or its history tools, and the bridge catalog
+and dispatcher reject direct history reads. Their new messages and results are
+still visible to the artist in the local conversation.
 
 The current OpenAI-compatible provider bridge and DAW dispatcher remain in use.
 The evaluated ditto-assistant/ditto-harness Node binding currently supplies a

@@ -90,13 +90,13 @@ async function generate() {
   while (Date.now() - started < 360000) {
     await page.waitForTimeout(2000);
     const busy = await page.locator('[data-testid="cancel"]').count();
-    const log = await page.locator('[data-testid="log"] .log-entry').allInnerTexts();
+    const log = await page.locator('[data-testid="conversation"] .chat-message, [data-testid="conversation"] .chat-activity').allInnerTexts();
     const last = log[log.length - 1];
     if (last) process.stdout.write(`\r${String(log.length).padStart(3)} ${last.slice(0, 110).padEnd(110)}`);
     if (!busy) break;
   }
   console.log();
-  const log = await page.locator('[data-testid="log"] .log-entry').allInnerTexts();
+  const log = await page.locator('[data-testid="conversation"] .chat-message, [data-testid="conversation"] .chat-activity').allInnerTexts();
   console.log("--- run log ---");
   for (const l of log) console.log(l);
   const tracks = await page.locator('[data-testid^="track-"]').count();

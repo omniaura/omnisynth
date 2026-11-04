@@ -88,7 +88,11 @@ export const conversation = createRoot(() => {
   async function older(): Promise<void> {
     const first = turns()[0];
     if (!first) return;
-    const all = await recent(first.at);
+    const all = await recent(first.at).catch((cause) => {
+      setError("Earlier messages could not be loaded. Try Earlier messages again.");
+      throw cause;
+    });
+    setError("");
     setTurns((current) => [...all, ...current]);
     setHasOlder(all.length === 40);
   }
@@ -97,7 +101,10 @@ export const conversation = createRoot(() => {
     await load();
     const turn: ConversationTurn = { id: crypto.randomUUID(), at: Math.max(Date.now(), (turns().at(-1)?.at ?? 0) + 1), prompt, attachments: attachments.map(({ name, kind }) => ({ name, kind })), events: [], messages: [{ role: "user", content: prompt }], outcome: "running" };
     // Save the artist's input before any inference or clearing the draft.
-    await write(turn);
+    await write(turn).catch((cause) => {
+      setError("Your message could not be saved. Free some storage and try again; your draft is still here.");
+      throw cause;
+    });
     active = turn;
     setError("");
     setTurns((all) => [...all, turn]);
@@ -106,7 +113,7 @@ export const conversation = createRoot(() => {
   function event(event: RunEvent): void {
     if (!active) return;
     active.events = [...active.events, event];
-    persist();
+    if (event.type !== "status") persist();
   }
 
   function messages(messages: ChatMessage[]): void {
@@ -144,24 +151,28 @@ export const conversation = createRoot(() => {
     return kept.flat();
   }
 
-  async function search(query: string): Promise<string> {
+  async function search(query: string, before = Infinity): Promise<string> {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return "Provide a few words from the earlier conversation.";
     const database = await db();
-    const found = await new Promise<ConversationTurn[]>((resolve, reject) => {
-      const request = database.transaction("turns").objectStore("turns").index("at").openCursor(null, "prev");
+    const found = await new Promise<{ matches: ConversationTurn[]; nextBefore: number | null }>((resolve, reject) => {
+      const request = database.transaction("turns").objectStore("turns").index("at").openCursor(Number.isFinite(before) ? IDBKeyRange.upperBound(before, true) : null, "prev");
       const matches: ConversationTurn[] = [];
+      let scanned = 0, lastAt = 0;
       request.onsuccess = () => {
         const cursor = request.result;
-        if (!cursor || matches.length >= 8) { resolve(matches); return; }
+        if (!cursor) { resolve({ matches, nextBefore: null }); return; }
+        if (matches.length >= 8 || scanned >= 200) { resolve({ matches, nextBefore: lastAt }); return; }
         const turn = cursor.value as ConversationTurn;
+        scanned++;
+        lastAt = turn.at;
         const text = JSON.stringify([turn.prompt, turn.messages]).toLowerCase();
         if (turn.id !== active?.id && words.every((word) => text.includes(word))) matches.push(turn);
         cursor.continue();
       };
       request.onerror = () => reject(request.error);
     });
-    return JSON.stringify(found.map((turn) => ({ id: turn.id, prompt: turn.prompt.slice(0, 4000), response: turn.events.filter((event) => event.type === "assistant" || event.type === "done").map((event) => event.text).join("\n").slice(-4000) })));
+    return JSON.stringify({ matches: found.matches.map((turn) => ({ id: turn.id, prompt: turn.prompt.slice(0, 4000), response: turn.events.filter((event) => event.type === "assistant" || event.type === "done").map((event) => event.text).join("\n").slice(-4000) })), nextBefore: found.nextBefore });
   }
 
   async function read(id: string, offset = 0): Promise<string> {

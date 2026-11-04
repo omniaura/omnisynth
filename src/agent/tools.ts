@@ -4,6 +4,8 @@ import { BUILTIN_INSTRUMENTS, INSTRUMENT_PRESETS, OSCILLATOR_TYPES, SCALE_NAMES,
 import { Mutators, describeSteps, normalizeNote, parseSteps, type Subdivision } from "../engine/patterns";
 import { EVOLVE_OP_DOC, cellular as caStep, lsystem as lsys, parseRules } from "../engine/evolution";
 import { MOD_SOURCE_DOC, parseModSource, type Modulation } from "../engine/modulation";
+import { applyTemplate, listLibrary, usePatch, usePattern, useProgression } from "../library";
+import { KNOWLEDGE } from "../library/knowledge";
 
 /**
  * The DAW tool surface the orchestrator agent calls. Definitions are
@@ -269,6 +271,28 @@ export function toolDefinitions(): ChatToolDefinition[] {
     def("save_song", "Save the current song.", { name: { type: "string" } }, ["name"]),
     def("list_songs", "List saved songs.", {}),
     def("load_song", "Load a saved song by key.", { key: { type: "string" } }, ["key"]),
+    // --- Library / knowledge ---
+    def("get_knowledge", "Re-read the producer knowledge pack (harmony, melody, bass, grooves, arrangement, mix, patch ids). It is also in your first message.", {}),
+    def(
+      "list_library",
+      "Browse the production library: SOTA patches (909/808 drums, 303, Moog, Juno, Reese, wobble, M1 piano, supersaw, FM bells…), genre rhythm grids, chord progressions, arrangement templates. Filter by kind and a free-text query (genre, role, mood).",
+      { kind: { type: "string", enum: ["patch", "pattern", "progression", "arrangement", "all"] }, query: { type: "string", description: "e.g. 'techno kick', 'dnb bass', 'brooding', 'garage'" } },
+      ["kind"],
+    ),
+    def("use_patch", "Register a library patch as an instrument (optionally under a new id) so add_track can use it. Returns its mix guidance (volume, octave, grid).", { id: { type: "string", description: "library patch id, e.g. bass-303" }, as: { type: "string", description: "instrument id to register as (default: the patch id)" } }, ["id"]),
+    def(
+      "use_pattern",
+      "Resolve a library rhythm/bass/arp grid into concrete steps (JSON) you can pass to add_track / update_track / set_section_pattern. Melodic patterns are pitched into the song key.",
+      { id: { type: "string" }, bars: { type: "integer", description: "repeat for N bars (default 1)" }, octave: { type: "integer", description: "melodic roles: octave for degree 1 (default 2)" }, key: { type: "string" }, scale: { type: "string", enum: SCALE_NAMES }, swing_ms: { type: "number", description: "override swing nudge on offbeat 16ths" } },
+      ["id"],
+    ),
+    def(
+      "use_progression",
+      "Resolve a chord progression in the song key to voiced chord notes per bar plus a bass root line. Returns JSON with chords, chordSteps (4n grid) and bassSteps (4n grid).",
+      { id: { type: "string" }, key: { type: "string" }, mode: { type: "string", enum: SCALE_NAMES }, voicing: { type: "string", enum: ["root", "spread", "rootless", "drop2", "stab"], description: "spread (default) for pads, stab/rootless over a sub, root for leads" }, octave: { type: "integer" }, bass_octave: { type: "integer" } },
+      ["id"],
+    ),
+    def("apply_template", "Create sections + arrangement from a genre arrangement template (bars, per-section meter/tempo, and a recipe describing what to do in each section). Then fill sections with set_section_pattern.", { id: { type: "string" }, scale: { type: "number", description: "shrink/stretch all section lengths (0.5 = half)" } }, ["id"]),
     def("get_state", "Return the current song state (tracks, patterns, sections, arrangement, modulations, rules).", {}),
     def("done", "Call when all changes are made. Summarize what you built for the artist in 1-3 sentences.", { summary: { type: "string" } }, ["summary"]),
   ];
@@ -527,6 +551,26 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     }
     case "load_song":
       return ctx.loadSong(String(args.key));
+    case "get_knowledge":
+      return KNOWLEDGE;
+    case "list_library":
+      return listLibrary((args.kind as "patch" | "pattern" | "progression" | "arrangement" | "all") ?? "all", args.query ? String(args.query) : undefined);
+    case "use_patch": {
+      const { instrument, patch } = usePatch(String(args.id), args.as ? String(args.as) : undefined);
+      return `Instrument "${instrument}" ready (${patch.type}${patch.effects?.length ? `, fx: ${patch.effects.map((e) => e.type).join(">")}` : ""}). Mix: volume ${patch.mix.volume} dB, octaves ${patch.mix.octaveLow}-${patch.mix.octaveHigh}, grid ${patch.grid}${patch.mix.pan ? `, pan ${patch.mix.pan}` : ""}.${patch.mix.note ? ` ${patch.mix.note}.` : ""}`;
+    }
+    case "use_pattern": {
+      const { pattern, steps } = usePattern(String(args.id), { bars: argNum(args, "bars"), octave: argNum(args, "octave"), key: args.key ? String(args.key) : undefined, scale: args.scale ? String(args.scale) : undefined, swingMs: argNum(args, "swing_ms") });
+      return JSON.stringify({ subdivision: pattern.subdivision, meter: pattern.meter ?? [4, 4], notes: steps, hint: pattern.notes ?? "" });
+    }
+    case "use_progression": {
+      const r = useProgression(String(args.id), { key: args.key ? String(args.key) : undefined, mode: args.mode ? String(args.mode) : undefined, voicing: args.voicing as never, octave: argNum(args, "octave"), bassOctave: argNum(args, "bass_octave") });
+      return JSON.stringify(r);
+    }
+    case "apply_template": {
+      const r = applyTemplate(String(args.id), { scale: argNum(args, "scale") });
+      return `Sections ${r.sections.join(", ")}; arrangement ${r.arrangement.join(" → ")}.\nRecipes:\n${Object.values(r.recipes).join("\n")}`;
+    }
     case "get_state":
       return JSON.stringify(compactState(engine.getState()));
     case "done":
@@ -598,5 +642,6 @@ export function compactState(state: SongState): Record<string, unknown> {
     macros: state.macros,
     customPatches: state.customPatches.map((p) => p.id),
     builtinInstruments: BUILTIN_INSTRUMENTS,
+    libraryPatches: "use list_library kind=patch; use_patch registers one as an instrument",
   };
 }

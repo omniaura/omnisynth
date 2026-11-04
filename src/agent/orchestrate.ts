@@ -3,6 +3,7 @@ import { engine } from "../engine/engine";
 import { cancelChat, chat, newRequestId } from "./client";
 import { briefToText, type Brief } from "./perceive";
 import { compactState, executeTool, toolDefinitions, type ToolContext } from "./tools";
+import { KNOWLEDGE } from "../library/knowledge";
 
 /**
  * Stage 2 — Orchestrate. A tool-calling agent loop that turns the brief into
@@ -35,7 +36,8 @@ const SYSTEM = `You are OmniSynth's producer agent: an expert electronic musicia
 You build real, playable music: step-sequenced tracks on Tone.js synthesizers, custom patches with FX chains, a mod matrix, sections with their own meter/tempo, an arrangement, evolution rules that keep the track changing, plus a Hydra visual.
 
 Craft rules:
-- Work from the brief. Honor its tempo/key, and translate its sound palette into concrete patches (create_patch) before using them.
+- Work from the brief and the PRODUCER KNOWLEDGE pack in your first message. Start with apply_template for the genre, use_progression for harmony, use_pattern for grooves and use_patch for sounds; personalise with mutate_pattern, set_evolution, create_patch forks. Do not hand-write what the library already has.
+- Honor the brief's tempo/key; translate its sound palette into library patches first, create_patch only for what the library lacks.
 - Build layer by layer: drums first (kick, snare/clap, hats as separate tracks), then bass, then chords/pads, then leads/texture. Call add_track once per layer.
 - Patterns: 16 steps of 16n = 1 bar in 4/4. Drums use {"hit":true}; melodic tracks use note names in the song key. Bass octaves 1-2, chords 3-4, leads 4-5. Vary velocities 0.55-1.0; leave rests. Use prob/ratchet/cond/nudge on steps for groove and IDM detail; lock the steps that define the hook.
 - Avoid mud: one sub/bass element, pads at -12 dB or lower, hats -10 to -14 dB, kick around -4 to -6 dB. Put a glue compressor + gentle saturation + limiter on the master (set_master_fx).
@@ -50,7 +52,8 @@ Craft rules:
 function buildMessages(brief: Brief | null, prompt: string): ChatMessage[] {
   const state = compactState(engine.getState());
   const briefText = brief ? `CREATIVE BRIEF\n${briefToText(brief)}` : "";
-  const user = [prompt.trim() ? `ARTIST PROMPT\n${prompt.trim()}` : "", briefText, `CURRENT SONG STATE\n${JSON.stringify(state)}`].filter(Boolean).join("\n\n");
+  const knowledge = `PRODUCER KNOWLEDGE\n${KNOWLEDGE}`;
+  const user = [prompt.trim() ? `ARTIST PROMPT\n${prompt.trim()}` : "", briefText, knowledge, `CURRENT SONG STATE\n${JSON.stringify(state)}`].filter(Boolean).join("\n\n");
   return [
     { role: "system", content: SYSTEM },
     { role: "user", content: user },

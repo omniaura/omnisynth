@@ -38,11 +38,17 @@ server any client can mount. See [docs/DITTO_DESKTOP.md](docs/DITTO_DESKTOP.md).
 bun install
 bun run dev          # Vite + Electron
 bun run typecheck
-bun run dist         # package release/OmniSynth-<version>-arm64.dmg
+bun run dist:unsigned # internal Apple silicon DMG + ZIP, no signing credentials
+bun run dist          # requires Developer ID signing + notarization credentials
 ```
 
 QA against a running app: `OMNISYNTH_QA_PORT=9333 bun run dev` then
 `node scripts/qa.mjs smoke|generate|attach|edit`.
+
+Signed releases, private candidate QA, owner credential setup and coexistence
+with Ditto are documented in [docs/MACOS_RELEASE.md](docs/MACOS_RELEASE.md).
+The release workflow creates private artifacts or a draft only; public
+publication and updater activation remain separate owner decisions.
 
 ## Tracking
 

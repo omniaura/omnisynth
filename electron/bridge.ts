@@ -63,6 +63,7 @@ const MAX_BODY_BYTES = 32 * 1024 * 1024;
 const DISCOVERY_FILE = "bridge.json";
 
 export function bridgeDir(): string {
+  if (process.env.OMNISYNTH_QA_USER_DATA_DIR) return process.env.OMNISYNTH_QA_USER_DATA_DIR;
   switch (process.platform) {
     case "darwin":
       return join(homedir(), "Library", "Application Support", "OmniSynth");

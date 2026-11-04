@@ -16,7 +16,8 @@ while pending:
     reachable.add(package)
     pending.extend(dep["pkg"] for dep in nodes[package]["deps"])
 packages = sorted((p for p in metadata["packages"] if p["id"] in reachable), key=lambda p: (p["name"], p["version"]))
-assert not any("hydra" in p["name"] or "strudel" in p["name"] for p in packages)
+if any("hydra" in p["name"] or "strudel" in p["name"] for p in packages):
+    raise SystemExit("Resolved dependency closure contains a Hydra/Strudel package")
 output = Path("target/distribution")
 output.mkdir(parents=True, exist_ok=True)
 inventory = [{"name": p["name"], "version": p["version"], "license": p["license"], "repository": p["repository"]} for p in packages]

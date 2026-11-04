@@ -55,8 +55,7 @@ def stop(process):
         try:
             cwd = Path(f"/proc/{process.pid}/cwd").resolve(strict=True)
         except OSError:
-            print(f"inspected={process.pid} killed=0 spared=1 reason=cwd-unavailable")
-            return
+            cwd = None
         print(f"inspected={process.pid} cwd={cwd} killed=0 spared=0 action=interrupt-owned-child")
         process.send_signal(signal.SIGINT)
         try:

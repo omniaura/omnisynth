@@ -43,6 +43,7 @@ await withCleanup(async () => {
     const inventory = JSON.parse(readFileSync(join(licensing, "source/dependency-inventory.json"), "utf8"));
     assert.ok(inventory.some((p) => p.name === "hydra-synth"), "Hydra source/notices missing");
     assert.ok(inventory.some((p) => p.name === "tone"), "Tone source/notices missing");
+    assert.ok(inventory.some((p) => p.name === "@strudel/web"), "Strudel source/notices missing");
     if (signed) {
       run("/usr/bin/codesign", ["--verify", "--deep", "--strict", "--verbose=2", app]);
       const details = spawnSync("/usr/bin/codesign", ["-dv", "--verbose=4", app], { encoding: "utf8" });

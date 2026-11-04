@@ -18,7 +18,7 @@ let origin = "";
 let nextID = 0;
 let revision = 0;
 let removeListener = () => {};
-const pending = new Map<number, { resolve: (state: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+const pending = new Map<number, { operation: number; resolve: (state: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
 
 function update(value: Record<string, unknown>): void {
   setStatus((previous) => ({
@@ -53,13 +53,13 @@ async function initialize(): Promise<void> {
         if (event.source !== iframe.contentWindow || event.origin !== origin || event.data?.channel !== "omnisynth-strudel") return;
         const data = event.data;
         if (data.type === "ready") { clearTimeout(timer); resolve(); return; }
-        if (data.type === "meter") { update(data); return; }
+        if (data.type === "meter") { if (data.operation === revision) update(data); return; }
         if (data.type !== "reply") return;
         const call = pending.get(data.id);
         if (!call) return;
         clearTimeout(call.timer);
         pending.delete(data.id);
-        if (data.state) update(data.state);
+        if (data.state && call.operation === revision) update(data.state);
         if (data.ok === true) call.resolve(data.state);
         else call.reject(new Error(typeof data.error === "string" ? data.error : "Strudel evaluation failed."));
       };
@@ -73,13 +73,14 @@ async function initialize(): Promise<void> {
   catch (error) { removeListener(); frame?.remove(); frame = null; ready = null; throw error; }
 }
 
-async function request(action: "evaluate" | "stop", source?: string): Promise<unknown> {
+async function request(action: "evaluate" | "stop", source?: string, operation = revision): Promise<unknown> {
   await initialize();
+  if (operation !== revision) throw new Error("Superseded by a newer transport command.");
   const id = ++nextID;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error("Strudel command timed out.")); }, 15000);
-    pending.set(id, { resolve, reject, timer });
-    frame!.contentWindow!.postMessage({ channel: "omnisynth-strudel", id, action, code: source }, origin);
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error("Strudel command timed out.")); }, action === "stop" ? 2000 : 15000);
+    pending.set(id, { operation, resolve, reject, timer });
+    frame!.contentWindow!.postMessage({ channel: "omnisynth-strudel", id, operation, action, code: source }, origin);
   });
 }
 
@@ -89,12 +90,15 @@ export function setStrudelCode(value: string): void {
   localStorage.setItem("omnisynth.strudel.code", value);
 }
 export async function stopStrudel(): Promise<void> {
-  ++revision;
+  const ticket = ++revision;
+  const ownedFrame = frame;
   if (frame) {
-    try { await request("stop"); }
-    catch { removeListener(); frame?.remove(); frame = null; ready = null; }
+    try { await request("stop", undefined, ticket); }
+    catch {
+      if (revision === ticket && frame === ownedFrame) { removeListener(); frame?.remove(); frame = null; ready = null; }
+    }
   }
-  setStatus((state) => ({ ...state, playing: false, rms: 0, bands: [0, 0, 0, 0] }));
+  if (revision === ticket) setStatus((state) => ({ ...state, playing: false, rms: 0, bands: [0, 0, 0, 0] }));
 }
 export async function evaluateStrudel(value = code()): Promise<string> {
   setStrudelCode(value);
@@ -104,25 +108,29 @@ export async function evaluateStrudel(value = code()): Promise<string> {
   try {
     await initialize();
     if (ticket !== revision) throw new Error("Strudel evaluation was cancelled.");
-    await request("evaluate", value);
-    if (ticket !== revision) { await request("stop"); throw new Error("Strudel evaluation was cancelled."); }
+    await request("evaluate", value, ticket);
+    if (ticket !== revision) throw new Error("Strudel evaluation was cancelled.");
     setStatus((state) => ({ ...state, error: null }));
     return JSON.stringify({ engine: "strudel", ...status(), code: code() });
   } catch (value) {
     const error = value instanceof Error ? value : new Error(String(value));
-    setStatus((state) => ({ ...state, error: error.message }));
+    if (ticket === revision) setStatus((state) => ({ ...state, error: error.message }));
     throw error;
   }
 }
 export async function selectEngine(value: "tone" | "strudel"): Promise<void> {
   engine.stop();
+  const ticket = revision + 1;
   await stopStrudel();
-  setSelected(value);
+  if (revision === ticket) setSelected(value);
 }
 export async function playSelected(): Promise<void> {
   if (selected() === "strudel") { await evaluateStrudel(); return; }
+  const ticket = revision + 1;
   await stopStrudel();
+  if (revision !== ticket || selected() !== "tone") return;
   await engine.play();
+  if (revision !== ticket || selected() !== "tone") engine.stop();
 }
 export async function stopAll(): Promise<void> { engine.stop(); await stopStrudel(); }
 export const strudel = { code, selected, status, setCode: setStrudelCode, evaluate: evaluateStrudel, stop: stopAll, play: playSelected, select: selectEngine };

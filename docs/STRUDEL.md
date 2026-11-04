@@ -29,3 +29,6 @@ provider, as with the existing DAW.
 This is an experiment, not Tone/Strudel project conversion or shared sample
 clock synchronization. The root AGPL license and packaged dependency source
 and notices cover the new integration; upstream notices are retained.
+The dependency bundle contains published npm package contents. For public
+distribution, also verify preferred-form upstream source availability for
+bundled/precompiled dependencies; this experiment does not clear that gate.

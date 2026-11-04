@@ -6,21 +6,23 @@ let playing = false;
 let generation = 0;
 let events = 0;
 let ready = false;
-const message = (value: Record<string, unknown>) => parent.postMessage({ channel: "omnisynth-strudel", ...value }, "*");
+const message = (value: Record<string, unknown>) => parent.postMessage({ channel: "omnisynth-strudel", operation: generation, ...value }, "*");
 const state = () => ({ playing, error, events, audioContext: getAudioContext().state });
 const initialization = initStrudel({
   editPattern: (pattern: Pattern) => pattern.analyze(1),
   beforeStart: () => getAudioContext().resume(),
   onToggle: (value: boolean) => { playing = value; },
-  onUpdateState: (value: { error?: Error }) => { if (value.error) error = value.error.message; },
+  onUpdateState: (value: { error?: Error }) => { error = value.error?.message ?? null; },
   onEvalError: (value: Error) => { error = value.message; },
 }).then(() => { ready = true; message({ type: "ready" }); });
 
 window.addEventListener("message", async (event) => {
   if (event.source !== parent || event.data?.channel !== "omnisynth-strudel") return;
-  const { id, action, code } = event.data;
-  if (!Number.isSafeInteger(id)) return;
-  const ticket = ++generation;
+  const { id, action, code, operation } = event.data;
+  if (!Number.isSafeInteger(id) || !Number.isSafeInteger(operation)) return;
+  if (operation < generation) { message({ type: "reply", id, ok: false, error: "Superseded command." }); return; }
+  generation = operation;
+  const ticket = operation;
   try {
     await initialization;
     if (action === "stop") { hush(); playing = false; }

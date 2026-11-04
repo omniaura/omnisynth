@@ -114,6 +114,7 @@ export interface SongFile {
   customPatches: Array<Patch & { id: string }>;
   masterFx?: EffectConfig[];
   modulations?: Modulation[];
+  automations?: Automation[];
   macros?: Record<string, number>;
   visuals?: string;
 }
@@ -1172,6 +1173,7 @@ export class AudioEngine {
       modulations: this.mods.list(),
       macros: Object.fromEntries(this.mods.macros),
       visuals,
+      automations: [...this.mods.automations.values()],
     };
   }
 
@@ -1219,6 +1221,7 @@ export class AudioEngine {
         console.warn("skip modulation", m.id, (err as Error).message);
       }
     }
+    for (const automation of song.automations ?? []) this.mods.addAutomation(automation, 0);
     this.applySectionPatterns();
     this.emitChange();
   }

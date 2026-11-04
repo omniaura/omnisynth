@@ -228,7 +228,7 @@ fn update(
             state.audio_errors
         );
     }
-    if !capture.captured && time.elapsed_secs() > 3. {
+    if !capture.captured && time.elapsed_secs() > 0.5 {
         if let Some(path) = &capture.path {
             commands
                 .spawn(Screenshot::primary_window())

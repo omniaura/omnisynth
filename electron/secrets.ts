@@ -22,6 +22,7 @@ function load(): SecretMap {
   }
   const out: SecretMap = {};
   for (const [k, v] of Object.entries(raw)) {
+    if (typeof v !== "string") continue;
     if (v.startsWith("enc:")) {
       if (!safeStorage.isEncryptionAvailable()) {
         throw new Error("safeStorage unavailable: stored secrets cannot be decrypted");

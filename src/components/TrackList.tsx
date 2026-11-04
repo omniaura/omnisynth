@@ -126,7 +126,7 @@ function TrackRow(props: { track: TrackState }) {
   const [editing, setEditing] = createSignal(false);
   const [notesText, setNotesText] = createSignal("");
   const current = () => store.currentStep[props.track.id] ?? -1;
-  const isDrum = () => props.track.isDrum;
+  const isDrum = () => props.track.pattern.notes.every((s) => s.rest || s.hit);
   const dense = () => props.track.pattern.notes.length > BUTTON_GRID_MAX;
 
   function toggleStep(i: number): void {
@@ -162,7 +162,9 @@ const parsed: unknown = JSON.parse(notesText());
               (s.prob === undefined || typeof s.prob === "number") &&
                 (s.cond === undefined || typeof s.cond === "string") &&
                 (s.nudge === undefined || typeof s.nudge === "number") &&
-                (s.slide === undefined || typeof s.slide === "number")
+                (s.slide === undefined || typeof s.slide === "number") &&
+                (s.duration === undefined || typeof s.duration === "string") &&
+                (s.lock === undefined || typeof s.lock === "boolean")
             );
           })
         ) throw new Error("expected an array of valid step objects");

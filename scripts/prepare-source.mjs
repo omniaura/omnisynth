@@ -4,18 +4,24 @@ import { dirname, join, resolve } from "node:path";
 // Package the actual checkout and installed production closure. Never sweep a
 // workspace, home directory, local profile or environment file into an archive.
 export function prepareSource(destination, root = process.cwd()) {
+  root = realpathSync(root);
   const source = join(destination, "source");
   mkdirSync(source, { recursive: true });
   const entries = ["src", "electron", "shared", "docs", "scripts", "build", "assets", "public", ".github",
     "LICENSE", "README.md", "third-party", "package.json", "bun.lock", "tsconfig.json",
     "tsconfig.node.json", "vite.config.ts", "electron-builder.json"];
   const excluded = new Set([".git", "node_modules", ".tmp", ".env", ".npmrc", ".DS_Store"]);
-  const copy = (from, to) => cpSync(from, to, { recursive: true, dereference: true,
-    filter: (path) => {
-      const base = path.split(/[\\/]/).at(-1);
-      return realpathSync(path) === resolve(path) && !excluded.has(base) && !base.startsWith(".env.");
-    } });
-  for (const entry of entries) if (existsSync(join(root, entry))) copy(join(root, entry), join(source, entry));
+  const copy = (from, to, boundary = from) => {
+    const realBoundary = realpathSync(boundary);
+    return cpSync(from, to, { recursive: true, dereference: true,
+      filter: (path) => {
+        const base = path.split(/[\\/]/).at(-1);
+        const realPath = realpathSync(path);
+        const inside = realPath === realBoundary || realPath.startsWith(realBoundary + (realBoundary.includes("\\") ? "\\" : "/"));
+        return inside && !excluded.has(base) && !base.startsWith(".env.");
+      } });
+  };
+  for (const entry of entries) if (existsSync(join(root, entry))) copy(join(root, entry), join(source, entry), root);
   cpSync(join(root, "LICENSE"), join(destination, "LICENSE"));
   const resolvePackage = (name, from) => {
     if (!/^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+$/i.test(name)) throw new Error("Invalid package name in dependency closure");

@@ -137,7 +137,13 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
       store.pushLog({ type: "status", text: "Cancelled." });
     }
   } finally {
-    await conversation.finish(outcome).catch(() => store.showToast("Chat history could not be saved. Keep this window open."));
+    if (outcome === "error") {
+      store.pushLog({ type: "error", text: msg });
+      store.showToast(msg.length > 200 ? `${msg.slice(0, 200)}…` : msg);
+    } else {
+      store.pushLog({ type: "status", text: "Cancelled." });
+    }
+  } finally {
     store.setRunning("idle");
     store.setStatus("");
     activeHandle = null;

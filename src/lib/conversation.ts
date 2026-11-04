@@ -165,8 +165,7 @@ export const conversation = createRoot(() => {
         if (turn.id !== active?.id && words.every((word) => text.includes(word))) matches.push(turn);
         cursor.continue();
       };
-      };
-      request.onerror = () => reject(request.error);
+        request.onerror = () => reject(request.error);
     });
     return JSON.stringify(found.map((turn) => ({ id: turn.id, prompt: turn.prompt.slice(0, 4000), response: turn.events.filter((event) => event.type === "assistant" || event.type === "done").map((event) => event.text).join("\n").slice(-4000) })));
   }

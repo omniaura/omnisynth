@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/branding/omnisynth-logo-original.png" width="200" alt="OmniSynth logo — three flowing bands of light" />
+</p>
+
 # OmniSynth
 
 An LLM-native DAW for electronic music. Give it a multisensory prompt — words,
@@ -10,6 +14,8 @@ Built with Electron + SolidJS + Tone.js + Hydra. Inference runs through
 [Ditto Router](https://router.heyditto.ai) (sign in with your Ditto account),
 OpenRouter (for [Jev](https://openrouter.ai/typesafe/jev-router)), Ollama, or
 whatever coding agent on your machine already has a gateway configured.
+
+Logo assets and source: [branding](assets/branding/README.md).
 
 ## How it works
 

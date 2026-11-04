@@ -1,0 +1,72 @@
+import assert from "node:assert/strict";
+import { _electron as electron } from "playwright-core";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { withCleanup } from "./with-cleanup.mjs";
+
+const executablePath = process.argv[2];
+if (!executablePath) throw new Error("Usage: node scripts/package-smoke.mjs /path/to/OmniSynth.app/Contents/MacOS/OmniSynth");
+mkdirSync(".tmp", { recursive: true });
+const root = mkdtempSync(resolve(".tmp/package-qa-"));
+const home = join(root, "home");
+const profile = join(home, "Library", "Application Support", "OmniSynth");
+const ditto = join(home, "Library", "Application Support", "Ditto");
+mkdirSync(profile, { recursive: true });
+mkdirSync(ditto, { recursive: true });
+const sentinel = join(ditto, "coexistence.json");
+writeFileSync(sentinel, '{"preserve":"Ditto fixture"}');
+// No real home, agent logins, env credentials, login-shell config or user data.
+const env = Object.fromEntries(["PATH", "DISPLAY", "XAUTHORITY", "TMPDIR", "TEMP", "TMP", "SystemRoot"].filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
+Object.assign(env, { HOME: home, XDG_CONFIG_HOME: join(home, ".config"), SHELL: "/bin/sh", OMNISYNTH_QA_USER_DATA_DIR: profile });
+let app;
+await withCleanup(async () => {
+try {
+  app = await electron.launch({ executablePath: resolve(executablePath), env, timeout: 60000 });
+  const identity = await app.evaluate(({ app }) => ({ name: app.getName(), version: app.getVersion(), userData: app.getPath("userData"), packaged: app.isPackaged }));
+  assert.equal(identity.name, "OmniSynth");
+  assert.equal(identity.userData, profile);
+  assert.equal(identity.packaged, true);
+  const page = await app.firstWindow();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.getByTestId("app").waitFor({ timeout: 30000 });
+  await page.getByTestId("settings").click();
+  await page.getByTestId("settings-modal").waitFor();
+  await page.getByTestId("settings-close").click();
+  await page.getByTestId("add-track").click();
+  await page.getByTestId("track-track-1").waitFor();
+  for (const i of [0, 4, 8, 12]) await page.getByTestId("track-track-1").locator(".step").nth(i).click();
+  await page.getByTestId("play").click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="play"]')?.classList.contains("playing"));
+  await page.getByTestId("play").click();
+  const info = await page.evaluate(() => window.omnisynth.bridge.info());
+  assert.ok(info?.port);
+  assert.equal(info.appPath, resolve(executablePath));
+  const base = `http://127.0.0.1:${info.port}`;
+  assert.equal((await fetch(`${base}/tools`)).status, 401);
+  assert.equal((await fetch(`${base}/tools`, { headers: { Authorization: `Bearer ${info.token}`, Origin: "https://example.invalid" } })).status, 403);
+  const state = await (await fetch(`${base}/state`, { headers: { Authorization: `Bearer ${info.token}` } })).json();
+  assert.ok(state.tracks.some((track) => track.id === "track-1"));
+  mkdirSync("release", { recursive: true });
+  await page.screenshot({ path: "release/package-qa.png" });
+  await page.evaluate(() => localStorage.setItem("omnisynth.release-qa", "profile persists"));
+  await page.reload();
+  await page.getByTestId("app").waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("omnisynth.release-qa")), "profile persists");
+  assert.equal(readFileSync(sentinel, "utf8"), '{"preserve":"Ditto fixture"}');
+  assert.deepEqual(errors, []);
+  mkdirSync("release", { recursive: true });
+  writeFileSync("release/package-qa.json", JSON.stringify({ identity: { ...identity, userData: "isolated QA profile" }, checks: ["packaged identity", "settings", "track edit", "play/stop UI", "bridge auth", "bridge state", "profile reload", "Ditto fixture untouched"], limitations: ["No production credentials or inference", "No audio-output assertion", "No simultaneous live Ditto process or real keychain encryption assertion"] }, null, 2));
+  console.log("Packaged OmniSynth smoke passed (isolated profile; Ditto fixture preserved).");
+} catch (error) {
+  try {
+    mkdirSync("release", { recursive: true });
+    const page = app?.windows()[0];
+    if (page) await page.screenshot({ path: "release/package-qa-failure.png" });
+  } catch { /* Screenshot failure must not hide the original UI assertion. */ }
+  throw error;
+}
+}, [
+  async () => { if (app) await app.close(); },
+  () => { assert.equal(existsSync(join(profile, "bridge.json")), false, "Bridge discovery file was not cleaned up on quit."); },
+]);

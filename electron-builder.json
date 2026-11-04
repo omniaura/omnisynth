@@ -1,18 +1,22 @@
 {
   "appId": "com.omniaura.omnisynth",
   "productName": "OmniSynth",
+  "executableName": "OmniSynth",
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "publish": null,
+  "protocols": [{ "name": "OmniSynth", "schemes": ["omnisynth"] }],
   "directories": { "output": "release" },
   "files": ["dist/**", "dist-electron/**", "package.json"],
   "asar": true,
   "mac": {
     "category": "public.app-category.music",
-    "target": [{ "target": "dmg", "arch": ["arm64"] }, { "target": "dir", "arch": ["arm64"] }],
-    "identity": null,
-    "hardenedRuntime": false,
+    "target": [{ "target": "dmg", "arch": ["arm64"] }, { "target": "zip", "arch": ["arm64"] }],
+    "hardenedRuntime": true,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist",
     "icon": "build/icon.icns",
     "extendInfo": {
       "NSMicrophoneUsageDescription": "OmniSynth can listen to audio input for reactive visuals."
     }
-  },
-  "dmg": { "sign": false }
+  }
 }

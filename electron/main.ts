@@ -15,6 +15,12 @@ import type { BridgeReply } from "../shared/ipc";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 
+// Keep the keychain service, Chromium profile and instance lock independent of
+// Ditto and of the Electron executable used during development.
+app.setName("OmniSynth");
+const qaUserData = process.env.OMNISYNTH_QA_USER_DATA_DIR;
+if (qaUserData) app.setPath("userData", qaUserData);
+
 // QA automation: OMNISYNTH_QA_PORT exposes the Chrome DevTools protocol so a
 // driver (Playwright over CDP) can control the packaged app end to end.
 if (process.env.OMNISYNTH_QA_PORT) {
@@ -31,8 +37,10 @@ let pendingGenerate: { prompt: string; mode?: "new" | "iterate"; source?: string
 
 // omnisynth://generate?prompt=...&mode=new — Ditto Desktop and the shell can open the app with a job.
 const PROTOCOL = "omnisynth";
-if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [process.argv[1]]);
-else app.setAsDefaultProtocolClient(PROTOCOL);
+if (!qaUserData) {
+  if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [process.argv[1]]);
+  else app.setAsDefaultProtocolClient(PROTOCOL);
+}
 
 function handleDeepLink(raw: string): void {
   try {

@@ -114,7 +114,7 @@ fn setup(mut commands: Commands) {
         );
     }
     commands.spawn((
-        Text2d::new("Connecting audio…"),
+        Text2d::new("Connecting audio..."),
         TextFont {
             font_size: bevy::text::FontSize::Px(15.),
             ..default()
@@ -125,7 +125,7 @@ fn setup(mut commands: Commands) {
     ));
     text(
         &mut commands,
-        "SPACE  play / stop     ↑ ↓  tempo     W  waveform     R  reset pattern     CLICK  toggle step",
+        "SPACE play/stop   UP/DOWN tempo   W waveform   R reset pattern   CLICK toggle step",
         0.,
         -280.,
         13.,
@@ -235,12 +235,13 @@ fn update(
     }
     for mut text in &mut status {
         text.0 = format!(
-            "{}   ·   {:.0} BPM   ·   {:?}   ·   RMS {:.3}   ·   {}",
+            "{} | {:.0} BPM | {:?} | RMS {:.3} | {} | errors {}",
             if state.playing { "PLAYING" } else { "READY" },
             state.pattern.bpm,
             state.pattern.waveform,
             state.rms,
-            studio.audio_label
+            studio.audio_label,
+            state.audio_errors
         );
     }
     if !capture.captured && time.elapsed_secs() > 3. {

@@ -78,6 +78,7 @@ pub struct Command {
 
 pub struct Meter {
     pub frames: AtomicU64,
+    pub audio_errors: AtomicU64,
     pub revision: AtomicU64,
     pub playing: AtomicBool,
     pub step: AtomicU8,
@@ -92,6 +93,7 @@ pub struct Meter {
 pub struct Snapshot {
     pub frames: u64,
     pub applied_revision: u64,
+    pub audio_errors: u64,
     pub playing: bool,
     pub step: u8,
     pub rms: f32,
@@ -102,6 +104,7 @@ impl Meter {
     fn new(p: &Pattern) -> Self {
         Self {
             frames: AtomicU64::new(0),
+            audio_errors: AtomicU64::new(0),
             revision: AtomicU64::new(0),
             playing: AtomicBool::new(false),
             step: AtomicU8::new(0),
@@ -117,6 +120,7 @@ impl Meter {
         Snapshot {
             frames: self.frames.load(Ordering::Relaxed),
             applied_revision: self.revision.load(Ordering::Acquire),
+            audio_errors: self.audio_errors.load(Ordering::Relaxed),
             playing: self.playing.load(Ordering::Relaxed),
             step: self.step.load(Ordering::Relaxed),
             rms: f32::from_bits(self.rms.load(Ordering::Relaxed)),
@@ -180,6 +184,12 @@ pub struct Engine {
     decay: f32,
 }
 impl Engine {
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate as u32
+    }
+    pub fn meter(&self) -> Arc<Meter> {
+        self.meter.clone()
+    }
     pub fn new(sample_rate: u32) -> (Self, Controller) {
         assert!(sample_rate > 0);
         let pattern = Pattern::default();

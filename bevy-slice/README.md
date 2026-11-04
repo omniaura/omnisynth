@@ -29,6 +29,9 @@ not the render loop; the renderer reads measured RMS from the same generated
 samples. Parameter changes cross a bounded command queue. The audio callback
 does not take the controller lock, allocate, read files, or make HTTP calls.
 This is a monophonic, decaying oscillator prototype, not a full DSP engine.
+The output uses a conservative 2048-frame buffer when supported; low-latency
+tuning is future work. The status line reports backend errors, including
+underruns, rather than silently treating a running process as successful audio.
 
 For explicit device-free simulation, use `--offline-audio`. Its label makes
 that mode visible; it does not claim to produce device output. To export an
@@ -106,5 +109,7 @@ the existing app. Bevy is MIT OR Apache-2.0; the audio and utility crates use
 permissive licenses. `Cargo.lock` is independent of Bun and the
 old Tauri lockfile. No Hydra/Strudel code or assets are copied into this crate.
 Run `cargo metadata --locked --format-version 1` to inspect dependency license
-expressions. Retain third-party notices and audit the complete target-specific
-dependency/asset closure before distributing a binary.
+expressions. `scripts/notices.py` collects the resolved host closure and package
+notices for CI artifacts, including the bundled default Fira Mono font's OFL.
+Retain those notices and audit the complete target-specific dependency/asset
+closure before public distribution; this slice does not authorize publication.

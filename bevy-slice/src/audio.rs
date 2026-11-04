@@ -8,11 +8,30 @@ pub fn start(engine: Engine) -> Result<(cpal::Stream, String), String> {
         .ok_or("No output device. Select one or use --offline-audio for explicit simulation.")?;
     let supported = device.default_output_config().map_err(|e| e.to_string())?;
     let format = supported.sample_format();
-    let config: cpal::StreamConfig = supported.into();
+    let buffer = match supported.buffer_size() {
+        cpal::SupportedBufferSize::Range { min, max } if *min <= 2048 && *max >= 2048 => {
+            cpal::BufferSize::Fixed(2048)
+        }
+        _ => cpal::BufferSize::Default,
+    };
+    let mut config: cpal::StreamConfig = supported.into();
+    config.buffer_size = buffer;
+    if config.sample_rate != engine.sample_rate() {
+        return Err(
+            "Default audio device changed during startup; retry with the intended device selected"
+                .into(),
+        );
+    }
     // Engine must use the device's actual sample rate; callers create it using rate().
     let channels = config.channels as usize;
     let label = format!("CPAL / {} Hz / {} channels", config.sample_rate, channels);
-    let error = |error| eprintln!("Audio output stopped: {error}");
+    let meter = engine.meter();
+    let error = move |error| {
+        meter
+            .audio_errors
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        eprintln!("Audio backend reported: {error}");
+    };
     let stream = match format {
         cpal::SampleFormat::F32 => build::<f32>(&device, &config, engine, channels, error),
         cpal::SampleFormat::I16 => build::<i16>(&device, &config, engine, channels, error),

@@ -76,7 +76,7 @@ try:
     wait_for(pulse_socket.exists)
     alsa = out / "alsa.conf"
     alsa.write_text(f'pcm.!default {{ type pulse server "unix:{pulse_socket}" }}\nctl.!default {{ type pulse server "unix:{pulse_socket}" }}\n')
-    env = {**os.environ, "DISPLAY": f":{display_number}", "PULSE_SERVER": f"unix:{pulse_socket}", "ALSA_CONFIG_PATH": str(alsa), "WGPU_BACKEND": "vulkan"}
+    env = {**os.environ, "DISPLAY": f":{display_number}", "PULSE_SERVER": f"unix:{pulse_socket}", "ALSA_CONFIG_PATH": str(alsa), "WGPU_BACKEND": "vulkan", "LP_NUM_THREADS": "2"}
     # Force the software Vulkan device: no GPU availability assumption in CI.
     icd = Path("/usr/share/vulkan/icd.d/lvp_icd.json")
     if icd.exists():
@@ -129,7 +129,7 @@ try:
     wait_for(lambda: state()["frames"] > 1000)
     window_id = wait_for(lambda: subprocess.run(["xdotool", "search", "--onlyvisible", "--name", "OmniSynth Bevy Slice"], env=env, capture_output=True, text=True).stdout.strip(), timeout=90).splitlines()[0]
     recording = start(["ffmpeg", "-y", "-loglevel", "warning", "-thread_queue_size", "512", "-f", "x11grab", "-framerate", "24", "-video_size", "1100x700", "-i", env["DISPLAY"], "-thread_queue_size", "512", "-f", "pulse", "-i", "omnisynth_slice.monitor",
-                       "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(out / "native.mp4"),
+                       "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-threads", "2", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(out / "native.mp4"),
                        "-map", "1:a", "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", str(out / "loopback.wav")], env=env)
     time.sleep(1)
     pattern = {"notes": [48,None,55,None,60,63,None,55,48,None,58,None,63,60,55,None], "bpm": 128, "gain": 0.2, "waveform": "sine"}
@@ -148,6 +148,7 @@ try:
     time.sleep(4)
     stopped = applied(tool("set_transport", {"playing": False}))
     assert stopped["rms"] == 0 and stopped["playing"] is False
+    assert stopped["audio_errors"] == 0, "Audio backend reported errors during QA"
     time.sleep(1)
     stop(recording)
     wait_for(lambda: (out / "native.png").exists(), timeout=30)

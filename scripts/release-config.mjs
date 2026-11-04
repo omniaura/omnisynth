@@ -25,7 +25,7 @@ export function releaseConfig(env, { unsigned = false } = {}) {
 export function packagingEnv(env, unsigned) {
   return {
     ...env,
-    PATH: `/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH || ""}`,
+    PATH: [`/usr/bin`, `/bin`, `/usr/sbin`, `/sbin`, env.PATH].filter(Boolean).join(":"),
     CSC_IDENTITY_AUTO_DISCOVERY: unsigned ? "false" : "true",
   };
 }

@@ -37,9 +37,10 @@ function load(): SecretMap {
 function save(map: SecretMap): void {
   const raw: Record<string, string> = {};
   for (const [k, v] of Object.entries(map)) {
-    raw[k] = safeStorage.isEncryptionAvailable()
-      ? `enc:${safeStorage.encryptString(v).toString("base64")}`
-      : `raw:${v}`;
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error("safeStorage unavailable: refusing to store secrets in plaintext");
+      }
+      raw[k] = `enc:${safeStorage.encryptString(v).toString("base64")}`;
   }
   mkdirSync(app.getPath("userData"), { recursive: true });
   writeFileSync(filePath(), JSON.stringify(raw, null, 2), { mode: 0o600 });

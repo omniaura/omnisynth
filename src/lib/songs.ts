@@ -11,7 +11,13 @@ function exportProject(name: string): ProjectFile {
 async function importProject(file: ProjectFile): Promise<void> {
   await strudel.stop();
   await engine.importSong(file);
-  if (file.strudel && typeof file.strudel.code === "string") strudel.setCode(file.strudel.code);
+  if (file.strudel && typeof file.strudel.code === "string") {
+    try {
+      strudel.setCode(file.strudel.code);
+    } catch {
+      store.showToast(`Strudel code from "${file.name ?? "project"}" could not be loaded.`);
+    }
+  }
   await strudel.select(file.strudel?.selected ? "strudel" : "tone");
 }
 

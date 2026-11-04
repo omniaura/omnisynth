@@ -12,7 +12,7 @@ const initialization = initStrudel({
   editPattern: (pattern: Pattern) => pattern.analyze(1),
   beforeStart: () => getAudioContext().resume(),
   onToggle: (value: boolean) => { playing = value; },
-  onUpdateState: (value: { error?: Error }) => { error = value.error?.message ?? null; },
+  onUpdateState: (value: { error?: Error }) => { if (value.error) error = value.error.message; },
   onEvalError: (value: Error) => { error = value.message; },
 }).then(() => { ready = true; message({ type: "ready" }); });
 
@@ -32,7 +32,7 @@ window.addEventListener("message", async (event) => {
       error = null;
       await getAudioContext().resume();
       const pattern = await evaluate(code, true) as Pattern | undefined;
-      if (ticket !== generation) { hush(); playing = false; throw new Error("Superseded by a newer transport command."); }
+      if (ticket !== generation) { hush(); playing = false; message({ type: "reply", id, ok: false, error: "Superseded by a newer transport command." }); return; }
       if (error || !pattern) { hush(); playing = false; throw new Error(error || "Code did not produce a Strudel pattern."); }
       events = pattern.queryArc(0, 1).length;
     } else throw new Error("Unknown Strudel action.");

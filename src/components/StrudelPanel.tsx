@@ -11,9 +11,12 @@ export default function StrudelPanel() {
       <span class="spacer" />
       <button onClick={() => strudel.setCode(DEFAULT_STRUDEL)}>Synth demo</button>
       <button class="btn-primary small" onClick={run} data-testid="strudel-evaluate">Evaluate & play ⌘↵</button>
-      <button onClick={() => void strudel.stop()} data-testid="strudel-stop">Stop</button>
+        <button onClick={() => void strudel.stop().catch((error) => store.showToast(error.message))} data-testid="strudel-stop">Stop</button>
     </div>
-    <div class="strudel-editor"><CodeEditor label="Strudel code" code={strudel.code} onCodeChange={strudel.setCode} onEvaluate={run} /></div>
+    <div class="strudel-editor"><CodeEditor label="Strudel code" code={strudel.code} onCodeChange={(value) => {
+      try { strudel.setCode(value); }
+      catch (error) { store.showToast((error as Error).message); }
+    }} onEvaluate={run} /></div>
     <div class="strudel-status" role="status" data-testid="strudel-status">
       {strudel.status().error || `${strudel.status().playing ? "Playing" : "Stopped"} · ${strudel.status().events} events/cycle · RMS ${strudel.status().rms.toFixed(3)} · audio ${strudel.status().audioContext}`}
     </div>

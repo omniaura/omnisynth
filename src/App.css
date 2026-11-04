@@ -416,3 +416,18 @@ kbd { font-family: var(--font-mono); font-size: 10px; opacity: 0.7; margin-left:
 .strudel-editor { height: 250px; }
 .strudel-status { padding: 8px 14px; color: var(--accent, #5ef0d1); font-family: monospace; }
 .strudel-panel > p { padding: 0 14px 10px; }
+.conversation { flex: 1; min-height: 140px; overflow-y: auto; overflow-anchor: none; padding: 16px; }
+.chat-turn { margin-bottom: 28px; }
+.chat-message { margin-bottom: 14px; overflow-wrap: anywhere; }
+.chat-message strong { font-size: 12px; color: var(--text-secondary); }
+.chat-message p { margin: 5px 0 0; white-space: pre-wrap; line-height: 1.55; }
+.chat-message.artist { padding: 10px 12px; background: var(--bg-tertiary); border-radius: 8px; }
+.chat-attachments, .chat-interrupted { font-size: 12px; color: var(--text-secondary); }
+.chat-activity { font-size: 12px; color: var(--text-secondary); }
+.chat-activity summary { cursor: pointer; padding: 6px 0; }
+.chat-activity pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; max-height: 160px; overflow: auto; }
+.chat-empty { color: var(--text-secondary); line-height: 1.6; }
+.chat-save-error, .chat-message.failed, .chat-activity .failed { color: var(--accent-danger); }
+.chat-save-error { padding: 8px 12px; }
+.composer .prompt { flex: none; min-height: 82px; }
+.composer > .brief { max-height: 180px; overflow-y: auto; flex: none; }

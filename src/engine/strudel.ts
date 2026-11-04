@@ -10,7 +10,7 @@ stack(
   note("c4 [eb4 g4] bb4 g4").s("sine").slow(2).room(0.3).gain(0.2)
 )`;
 const [code, setCodeSignal] = createSignal(localStorage.getItem("omnisynth.strudel.code") ?? DEFAULT_STRUDEL);
-const [selected, setSelected] = createSignal<"tone" | "strudel">("tone");
+const [selected, setSelected] = createSignal<"tone" | "strudel">(localStorage.getItem("omnisynth.music-engine") === "strudel" ? "strudel" : "tone");
 const [status, setStatus] = createSignal({ playing: false, error: null as string | null, events: 0, rms: 0, bands: [0, 0, 0, 0], audioContext: "uninitialized" });
 let frame: HTMLIFrameElement | null = null;
 let ready: Promise<void> | null = null;
@@ -115,6 +115,7 @@ export async function evaluateStrudel(value = code()): Promise<string> {
   const ticket = ++revision;
   engine.stop();
   setSelected("strudel");
+  localStorage.setItem("omnisynth.music-engine", "strudel");
   try {
     await initialize();
     if (ticket !== revision) throw new Error("Strudel evaluation was cancelled.");
@@ -132,7 +133,7 @@ export async function selectEngine(value: "tone" | "strudel"): Promise<void> {
   engine.stop();
   const ticket = revision + 1;
   await stopStrudel();
-  if (revision === ticket) setSelected(value);
+  if (revision === ticket) { setSelected(value); localStorage.setItem("omnisynth.music-engine", value); }
 }
 export async function playSelected(): Promise<void> {
   if (selected() === "strudel") { await evaluateStrudel(); return; }

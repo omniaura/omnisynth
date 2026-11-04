@@ -365,8 +365,16 @@ function ts(args: Record<string, unknown>): [number, number] | undefined {
 }
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
-  if (name === "search_conversation_history") return conversation.search(String(args.query ?? "").slice(0, 200), args.before == null ? Infinity : Number(args.before));
-  if (name === "read_conversation_turn") return conversation.read(String(args.id ?? ""), Number(args.offset ?? 0));
+  if (name === "search_conversation_history") {
+    const before = args.before == null ? Infinity : Number(args.before);
+    if (args.before != null && (!Number.isFinite(before) || before < 0)) return "Error: before must be a finite non-negative number.";
+    return conversation.search(String(args.query ?? "").slice(0, 200), before);
+  }
+  if (name === "read_conversation_turn") {
+    const offset = Number(args.offset ?? 0);
+    if (!Number.isSafeInteger(offset) || offset < 0) return "Error: offset must be a non-negative integer.";
+    return conversation.read(String(args.id ?? ""), offset);
+  }
   if (name === "evaluate_strudel") {
     if (typeof args.code !== "string") return "Error: Strudel code is required.";
     try { return await strudel.evaluate(args.code); } catch (error) { return `Error: ${(error as Error).message}`; }

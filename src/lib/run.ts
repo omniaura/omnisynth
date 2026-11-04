@@ -102,7 +102,7 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
     if (tier !== store.settings.budget) store.pushLog({ type: "status", text: `Balance ${credits?.balance?.toFixed(2)} ${credits?.currency ?? ""} — running ${tier} instead of ${store.settings.budget}` });
 
     let brief = input ? null : store.brief();
-    const wantsPerceive = !store.settings.skipPerceive && attachments.length > 0;
+    const wantsPerceive = !store.settings.skipPerceive && (attachments.length > 0 || !brief);
     if (wantsPerceive) {
       store.setRunning("perceiving");
       const { provider, model } = resolveModel("perceive", tier);
@@ -110,7 +110,7 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
       brief = await perceive({ provider: provider as never, model, prompt, attachments, signal: handle });
       store.setBrief(brief);
       store.pushLog({ type: "assistant", text: `Brief: ${brief.title} — ${brief.bpm} BPM, ${brief.key} ${brief.scale}; ${brief.mood.slice(0, 3).join(", ")}` });
-      if (handle.cancelled) throw new Error("cancelled");
+        if (!input) store.setBrief(brief);
     }
 
     store.setRunning("orchestrating");

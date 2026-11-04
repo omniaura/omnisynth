@@ -37,7 +37,7 @@ export default function Conversation() {
 
   return <>
     <Show when={conversation.error()}><p class="chat-save-error" role="alert">{conversation.error()}</p></Show>
-    <div class="conversation" ref={scroller} role="log" aria-label="Producer conversation" aria-live="off" data-testid="conversation" onScroll={() => {
+    <div class="conversation" ref={scroller} role="log" aria-label="Producer conversation" aria-live="polite" data-testid="conversation" onScroll={() => {
       if (!restoring && scroller) follow = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < 48;
     }}>
       <Show when={conversation.hasOlder()}><button class="btn-ghost small" onClick={() => void older()}>Earlier messages</button></Show>

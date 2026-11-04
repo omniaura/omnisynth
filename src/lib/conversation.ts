@@ -82,7 +82,7 @@ export const conversation = createRoot(() => {
       // An interrupted turn stays visible; it is never resumed automatically.
       setTurns(all.map((turn) => turn.outcome === "running" ? { ...turn, outcome: "cancelled" as const } : turn));
       setHasOlder(all.length === 40);
-    }).catch(() => { setError("Chat history could not be opened. Retry by reopening OmniSynth."); });
+    }).catch(() => { loaded = undefined; setError("Chat history could not be opened. Retry by reopening OmniSynth."); });
   }
 
   async function older(): Promise<void> {
@@ -125,7 +125,9 @@ export const conversation = createRoot(() => {
   async function finish(outcome: ConversationTurn["outcome"]): Promise<void> {
     if (!active) return;
     const summary = active.events.filter((event) => event.type === "done" || event.type === "assistant").at(-1)?.text;
-    if (outcome === "complete" && summary && active.messages.at(-1)?.content !== summary) active.messages = [...active.messages, { role: "assistant", content: summary }];
+    const lastContent = active.messages.at(-1)?.content;
+    const lastText = typeof lastContent === "string" ? lastContent : Array.isArray(lastContent) ? lastContent.map((part) => typeof part === "object" && part !== null && "text" in part && typeof part.text === "string" ? part.text : "").join("") : null;
+    if (outcome === "complete" && summary && lastText !== summary) active.messages = [...active.messages, { role: "assistant", content: summary }];
     active.outcome = outcome;
     persist();
     active = undefined;
@@ -133,7 +135,7 @@ export const conversation = createRoot(() => {
   }
 
   async function context(): Promise<ChatMessage[]> {
-    const all = await recent(Infinity, 12);
+    const all = await recent(Infinity, 12).catch(() => []);
     const groups = all.filter((turn) => turn.id !== active?.id).map((turn) => {
       const messages = completeMessages(turn.messages.map((message) => ({ ...message, content: message.role === "tool" && typeof message.content === "string" && message.content.length > 4000 ? message.content.slice(0, 4000) + "\n[Long result retained in local history.]" : message.content })));
       if (JSON.stringify(messages).length <= 30000) return messages;
@@ -184,8 +186,10 @@ export const conversation = createRoot(() => {
     });
     if (!turn) return "No conversation turn with that id.";
     const full = JSON.stringify({ prompt: turn.prompt, messages: turn.messages, outcome: turn.outcome });
-    const start = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
-    const end = Math.min(start + 12000, full.length);
+    let start = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+    if (start > 0 && start < full.length && full.charCodeAt(start - 1) >= 0xd800 && full.charCodeAt(start - 1) <= 0xdbff && full.charCodeAt(start) >= 0xdc00 && full.charCodeAt(start) <= 0xdfff) start++;
+    let end = Math.min(start + 12000, full.length);
+    while (end > start && end < full.length && full.charCodeAt(end - 1) >= 0xd800 && full.charCodeAt(end - 1) <= 0xdbff && full.charCodeAt(end) >= 0xdc00 && full.charCodeAt(end) <= 0xdfff) end--;
     return JSON.stringify({ id, text: full.slice(start, end), nextOffset: end < full.length ? end : null });
   }
 

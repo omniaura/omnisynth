@@ -139,14 +139,14 @@ export async function orchestrate(opts: {
         if (noToolTurns >= 3) return "The model kept running out of output space; try a shorter prompt or a different orchestrator model.";
         continue;
       }
-      return text || "The model returned no answer. Try sending your message again.";
+        if (noToolTurns >= 3) return text || "The model kept running out of output space; try a shorter prompt or a different orchestrator model.";
     }
     noToolTurns = 0;
 
     for (const call of calls) {
       if (handle.cancelled) throw new Error("cancelled");
       const name = call.function.name;
-      if (!availableTools().some((tool) => tool.function.name === name)) {
+      if (toolDefinitions().some((tool) => tool.function.name === name) && !availableTools().some((tool) => tool.function.name === name)) {
         const args = parseArgs(call);
         const result = "Error: This tool is unavailable in an external song job.";
         onEvent({ type: "tool_call", text: describeCall(name, args), tool: name, args });

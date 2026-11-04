@@ -74,6 +74,8 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
     evaluate(store.visuals());
     onCleanup(() => {
       ro.disconnect();
+      cancelAnimationFrame(raf);
+    });
   onMount(() => {
     let disposed = false;
     let ro: ResizeObserver | undefined;
@@ -113,6 +115,43 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
     })();
   });
     });
+  onMount(() => {
+    let disposed = false;
+    let ro: ResizeObserver | undefined;
+    onCleanup(() => {
+      disposed = true;
+      ro?.disconnect();
+      cancelAnimationFrame(raf);
+    });
+
+    void (async () => {
+      const canvas = canvasRef;
+      if (!canvas) return;
+      const HydraModule = await import("hydra-synth");
+      const HydraClass = HydraModule.default;
+      if (disposed) return;
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      hydra = new HydraClass({
+        canvas,
+        detectAudio: false,
+        enableStreamCapture: false,
+        autoLoop: true,
+        makeGlobal: false,
+        numSources: 4,
+        numOutputs: 4,
+        precision: "mediump",
+      });
+      ro = new ResizeObserver(() => {
+        if (!hydra) return;
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        hydra.setResolution(canvas.width, canvas.height);
+      });
+      ro.observe(canvas);
+      raf = requestAnimationFrame(tickAudio);
+      evaluate(store.visuals());
+    })();
   });
 
   function evaluate(code: string): void {

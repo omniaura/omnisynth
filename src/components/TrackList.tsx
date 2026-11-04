@@ -145,8 +145,27 @@ function TrackRow(props: { track: TrackState }) {
 
   function applyNotes(): void {
     try {
-      const notes = JSON.parse(notesText()) as Step[];
-      engine.updateTrack(props.track.id, { notes });
+const parsed: unknown = JSON.parse(notesText());
+        if (
+          !Array.isArray(parsed) ||
+          parsed.some((step) => {
+            if (step === null || typeof step !== "object" || Array.isArray(step)) return true;
+            const s = step as Record<string, unknown>;
+            const validNote = typeof s.note === "string" || (Array.isArray(s.note) && s.note.every((note) => typeof note === "string"));
+            return !(
+              (s.rest === true || s.hit === true || validNote) &&
+              (s.rest === undefined || typeof s.rest === "boolean") &&
+              (s.hit === undefined || typeof s.hit === "boolean") &&
+              (s.note === undefined || validNote) &&
+              (s.velocity === undefined || typeof s.velocity === "number") &&
+              (s.ratchet === undefined || typeof s.ratchet === "number") &&
+              (s.prob === undefined || typeof s.prob === "number") &&
+              (s.cond === undefined || typeof s.cond === "string")
+            );
+          })
+        ) throw new Error("expected an array of valid step objects");
+        const notes = parsed as Step[];
+        engine.updateTrack(props.track.id, { notes });
       setEditing(false);
     } catch (err) {
       store.showToast(`Pattern JSON invalid: ${(err as Error).message}`);

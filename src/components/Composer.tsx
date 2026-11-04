@@ -83,22 +83,30 @@ export default function Composer() {
   let logEl: HTMLDivElement | undefined;
 
   async function pick(): Promise<void> {
-    const b = bridge();
-    if (b) {
-      const picked = await b.files.pick(["image", "audio", "text"]);
-      store.setAttachments([...store.attachments(), ...picked]);
-    } else fileInput?.click();
+    try {
+      const b = bridge();
+      if (b) {
+        const picked = await b.files.pick(["image", "audio", "text"]);
+        store.setAttachments([...store.attachments(), ...picked]);
+      } else fileInput?.click();
+    } catch (err) {
+      store.showToast(`Could not attach files: ${String(err)}`);
+    }
   }
 
   async function onFiles(files: FileList | File[]): Promise<void> {
-    const list = Array.from(files);
-    const paths = list.map((f) => (f as File & { path?: string }).path).filter((p): p is string => Boolean(p));
-    const b = bridge();
-    let added: Attachment[] = [];
-    if (b && paths.length === list.length) added = await b.files.readPaths(paths);
-    else added = (await Promise.all(list.map(fileToAttachment))).filter((a): a is Attachment => a !== null);
-    if (added.length < list.length) store.showToast("Some files were skipped (images, audio and text only)");
-    store.setAttachments([...store.attachments(), ...added]);
+    try {
+      const list = Array.from(files);
+      const paths = list.map((f) => (f as File & { path?: string }).path).filter((p): p is string => Boolean(p));
+      const b = bridge();
+      let added: Attachment[] = [];
+      if (b && paths.length === list.length) added = await b.files.readPaths(paths);
+      else added = (await Promise.all(list.map(fileToAttachment))).filter((a): a is Attachment => a !== null);
+      if (added.length < list.length) store.showToast("Some files were skipped (images, audio and text only)");
+      store.setAttachments([...store.attachments(), ...added]);
+    } catch (err) {
+      store.showToast(`Could not attach files: ${String(err)}`);
+    }
   }
 
   function onDrop(e: DragEvent): void {

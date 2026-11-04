@@ -26,7 +26,10 @@ export function prepareSource(destination, root = process.cwd()) {
     }
   };
   const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  const pending = Object.entries(rootPackage.dependencies ?? {}).map(([name]) => ({ name, from: root, optional: false }));
+  const optionalDependencies = rootPackage.optionalDependencies ?? {};
+  const pending = Object.entries({ ...rootPackage.dependencies, ...optionalDependencies }).map(([name]) => ({
+    name, from: root, optional: Object.hasOwn(optionalDependencies, name),
+  }));
   const seen = new Set();
   const inventory = [];
   let notices = "OmniSynth third-party notices\nSee source/dependencies for installed production package source and notices.\n\n";

@@ -111,7 +111,8 @@ export async function perceive(opts: { provider: ProviderId; model: string; prom
     messages.push({ role: "user", content: `These fields were empty: ${missing.join(", ")}. Return the complete JSON object again with every field filled.` });
     raw = await ask();
     brief = parseBrief(raw);
-  }
+    const stillMissing = missingFields(brief);
+    if (stillMissing.length) throw new Error(`perceive: brief still missing fields after retry: ${stillMissing.join(", ")}`);
   return brief;
 }
 

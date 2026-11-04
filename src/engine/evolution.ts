@@ -171,7 +171,7 @@ export function applyOp(steps: Step[], op: EvolveOp, ctx: EvolveContext): Step[]
       chain.train(steps);
       const len = op.length ?? steps.length;
       const generated = chain.generate(steps, len, op.temperature ?? 1);
-      return generated.length ? generated.map((s, i) => (steps[i]?.lock ? steps[i] : s)) : steps;
+      return generated.length < len ? steps : generated.map((s, i) => (steps[i]?.lock ? steps[i] : s));
     }
     case "cellular":
       return cellular(steps, op.rule ?? 90, op.seed ?? "pattern", op.wrap ?? true, fill);

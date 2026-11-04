@@ -24,8 +24,19 @@ function index(): string[] {
 }
 
 export function saveSong(name: string): string {
-  const key = `omnisynth.song.${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const baseKey = `omnisynth.song.${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const file = engine.exportSong(name, store.visuals());
+  let key = baseKey;
+  for (let suffix = 1; ; suffix++) {
+    const existing = localStorage.getItem(key);
+    if (existing === null) break;
+    try {
+      if ((JSON.parse(existing) as SongFile).name === name) break;
+    } catch {
+      // Keep malformed entries rather than replacing them.
+    }
+    key = `${baseKey}-${suffix}`;
+  }
   localStorage.setItem(key, JSON.stringify(file));
   const keys = index();
   if (!keys.includes(key)) localStorage.setItem(INDEX_KEY, JSON.stringify([...keys, key]));
@@ -73,9 +84,11 @@ export async function exportSongFile(): Promise<void> {
   }
   const blob = new Blob([json], { type: "application/json" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `${store.songName() || "song"}.omnisynth.json`;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export async function importSongFile(): Promise<void> {

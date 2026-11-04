@@ -56,7 +56,7 @@ await withCleanup(async () => {
   }
   execFileSync(process.execPath, ["scripts/package-smoke.mjs", join(mount, "OmniSynth.app/Contents/MacOS/OmniSynth")], { stdio: "inherit" });
 }, [
-  () => { if (mountedDisk) { run("/usr/bin/hdiutil", ["detach", mount]); mountedDisk = false; detachedDisk = true; } },
+  () => { if (mountedDisk) { try { run("/usr/bin/hdiutil", ["detach", mount]); } catch { run("/usr/bin/hdiutil", ["detach", "-force", mount]); } mountedDisk = false; detachedDisk = true; } },
   () => { if (!mountedDisk || detachedDisk) rmSync(root, { recursive: true, force: true }); },
 ]);
 const files = [dmg, zip];

@@ -126,7 +126,7 @@ function TrackRow(props: { track: TrackState }) {
   const [editing, setEditing] = createSignal(false);
   const [notesText, setNotesText] = createSignal("");
   const current = () => store.currentStep[props.track.id] ?? -1;
-  const isDrum = () => props.track.pattern.notes.every((s) => s.rest || s.hit);
+  const isDrum = () => props.track.isDrum;
   const dense = () => props.track.pattern.notes.length > BUTTON_GRID_MAX;
 
   function toggleStep(i: number): void {
@@ -227,8 +227,10 @@ export default function TrackList() {
 
   async function addEmptyTrack(): Promise<void> {
     await engine.init();
-    const id = `track-${song.tracks.length + 1}`;
-    engine.addTrack({ id, name: `Track ${song.tracks.length + 1}`, instrument: "synth", volume: -8, pattern: { subdivision: "16n", notes: Array.from({ length: 16 }, () => ({ rest: true })) } });
+    let n = song.tracks.length + 1;
+    while (song.tracks.some((track) => track.id === `track-${n}`)) n++;
+    const id = `track-${n}`;
+    engine.addTrack({ id, name: `Track ${n}`, instrument: "synth", volume: -8, pattern: { subdivision: "16n", notes: Array.from({ length: 16 }, () => ({ rest: true })) } });
   }
 
   return (

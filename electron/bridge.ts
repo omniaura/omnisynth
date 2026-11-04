@@ -106,8 +106,13 @@ export class Bridge {
     const port = typeof address === "object" && address ? address.port : 0;
     this.server = server;
     this.info = { port, token, pid: process.pid, version: app.getVersion(), appPath: app.getPath("exe"), startedAt: new Date().toISOString(), protocol: 1 };
-    mkdirSync(bridgeDir(), { recursive: true });
-    writeFileSync(discoveryPath(), JSON.stringify(this.info, null, 2), { mode: 0o600 });
+    try {
+      mkdirSync(bridgeDir(), { recursive: true });
+      writeFileSync(discoveryPath(), JSON.stringify(this.info, null, 2), { mode: 0o600 });
+    } catch (err) {
+      this.stop();
+      throw err;
+    }
     return this.info;
   }
 
@@ -182,6 +187,10 @@ export class Bridge {
         const body = (await readJson(req)) as GenerateRequest;
         const attachments = this.resolveAttachments(body.attachments);
         const wait = body.wait !== false;
+        if (!wait) {
+          const win = this.windowProvider();
+          if (!win || win.isDestroyed()) return json(res, 503, { ok: false, error: "OmniSynth window is not open" });
+        }
         const call = this.callRenderer({ kind: "generate", args: { ...body, attachments } }, wait ? 15 * 60_000 : 5000);
         if (!wait) return json(res, 202, { ok: true, accepted: true });
         const r = await call;

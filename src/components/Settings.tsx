@@ -43,10 +43,15 @@ function DittoCard() {
     if (!b) return;
     setErr(null);
     setBusy("Waiting for browser approval…");
-    const res = await b.ditto.login((c) => setCode(c));
-    setBusy(null);
-    setCode(null);
-    if (!res.ok) setErr(res.error ?? "login failed");
+    try {
+      const res = await b.ditto.login((c) => setCode(c));
+      if (!res.ok) setErr(res.error ?? "login failed");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+      setCode(null);
+    }
     await refetch();
     await refreshProviders();
   }
@@ -175,8 +180,13 @@ function KeyCard(props: { provider: ProviderId; title: string; placeholder: stri
   const info = () => store.providers().find((p) => p.id === props.provider);
   async function save(): Promise<void> {
     const b = bridge();
-    if (b) await b.providers.setKey(props.provider, val());
-    else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, val());
+    try {
+      if (b) await b.providers.setKey(props.provider, val());
+      else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, val());
+    } catch (e) {
+      store.showToast(`Saving ${props.title} key failed: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     setVal("");
     await refreshProviders();
     store.showToast(`${props.title} key saved`);

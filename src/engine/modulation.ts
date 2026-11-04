@@ -297,13 +297,42 @@ export class ModMatrix {
 
   /** Forget cached parameter handles (tracks or master chain were rebuilt). */
   invalidate(): void {
-    for (const live of this.mods.values()) live.handle = undefined;
+    for (const live of this.mods.values()) {
+      live.handle = undefined;
+      live.lfo?.stop();
+      live.lfo?.dispose();
+      live.lfo = undefined;
+    }
   }
 }
 
 export function parseModSource(input: unknown): ModSource {
   const raw = (typeof input === "string" ? JSON.parse(input) : input) as Record<string, unknown>;
-  if (!raw || typeof raw !== "object" || !raw.type) throw new Error("source must be an object with a type");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof raw.type !== "string") throw new Error("source must be an object with a type");
+  const isRate = typeof raw.rate === "string" || typeof raw.rate === "number";
+  switch (raw.type) {
+    case "lfo":
+    case "random":
+      if (!isRate) throw new Error(`source "${raw.type}" requires a rate`);
+      break;
+    case "steps":
+      if (!isRate || !Array.isArray(raw.values) || !raw.values.every((value) => typeof value === "number")) throw new Error('source "steps" requires a rate and numeric values');
+      break;
+    case "follower":
+      if (typeof raw.track !== "string") throw new Error('source "follower" requires a track id');
+      break;
+    case "band":
+      if (raw.band !== 0 && raw.band !== 1 && raw.band !== 2 && raw.band !== 3) throw new Error('source "band" requires band 0..3');
+      break;
+    case "macro":
+      if (typeof raw.name !== "string") throw new Error('source "macro" requires a name');
+      break;
+    case "bar":
+    case "section":
+      break;
+    default:
+      throw new Error(`unknown modulation source type "${raw.type}"`);
+  }
   return raw as unknown as ModSource;
 }
 

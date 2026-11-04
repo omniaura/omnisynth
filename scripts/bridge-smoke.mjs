@@ -14,7 +14,7 @@ const file =
     ? join(homedir(), "Library", "Application Support", "OmniSynth", "bridge.json")
     : process.platform === "win32"
       ? join(process.env.APPDATA || join(homedir(), "AppData", "Roaming"), "OmniSynth", "bridge.json")
-      : join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "omnisynth", "bridge.json");
+      : join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "omnisynth", "bridge.json");
 const info = JSON.parse(readFileSync(file, "utf8"));
 const base = `http://127.0.0.1:${info.port}`;
 const auth = { Authorization: `Bearer ${info.token}`, "Content-Type": "application/json" };

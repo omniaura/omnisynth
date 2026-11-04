@@ -17,11 +17,12 @@ const outDir = "/tmp/omnisynth-qa";
 mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-const page =
-  browser
-    .contexts()[0]
-    .pages()
-    .find((p) => p.url().includes("index.html")) ?? browser.contexts()[0].pages()[0];
+const pages = browser.contexts().flatMap((context) => context.pages());
+if (pages.length === 0) {
+  await browser.close();
+  throw new Error(`No pages available on port ${port}; is the app running with OMNISYNTH_QA_PORT?`);
+}
+const page = pages.find((p) => p.url().includes("index.html")) ?? pages[0];
 const errors = [];
 page.on("console", (m) => {
   if (m.type() === "error" || m.type() === "warning") errors.push(`[${m.type()}] ${m.text()}`);

@@ -245,7 +245,10 @@ export function parseRules(input: unknown): EvolveRule[] {
         const n = Number(rule.every ?? 4);
         return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 4;
       })(),
-      prob: rule.prob === undefined ? 1 : Math.max(0, Math.min(1, Number(rule.prob))),
+      prob: (() => {
+        const n = Number(rule.prob);
+        return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
+      })(),
       ops: rule.ops,
       min_density: rule.min_density,
       max_density: rule.max_density,

@@ -36,23 +36,42 @@ export async function detectProviders(): Promise<ProviderInfo[]> {
   }));
 }
 
+const browserInflight = new Map<string, AbortController>();
+
 export async function chat(req: ChatRequest): Promise<ChatResponse> {
   const b = bridge();
   if (b) return b.inference.chat(req);
   const base = BROWSER_BASES[req.provider];
   if (!base) throw new Error(`provider ${req.provider} unavailable in browser mode`);
-  const res = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${browserKey(req.provider) || "ollama"}` },
-    body: JSON.stringify({ model: req.model, messages: req.messages, tools: req.tools, tool_choice: req.tools ? (req.tool_choice ?? "auto") : undefined, temperature: req.temperature, response_format: req.response_format }),
-  });
-  if (!res.ok) throw new Error(`${req.provider}: HTTP ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as { choices: Array<{ message: ChatResponse["message"]; finish_reason?: string }> };
-  return { message: data.choices[0].message, finish_reason: data.choices[0].finish_reason };
+  const controller = new AbortController();
+  if (req.requestId) browserInflight.set(req.requestId, controller);
+  try {
+    const res = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${browserKey(req.provider) || "ollama"}` },
+      body: JSON.stringify({ model: req.model, messages: req.messages, tools: req.tools, tool_choice: req.tools ? (req.tool_choice ?? "auto") : undefined, temperature: req.temperature, max_tokens: req.max_tokens, response_format: req.response_format }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`${req.provider}: HTTP ${res.status} ${await res.text()}`);
+    const data = (await res.json()) as { choices: Array<{ message: ChatResponse["message"]; finish_reason?: string }> };
+    return { message: data.choices[0].message, finish_reason: data.choices[0].finish_reason };
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "name" in err && err.name === "AbortError") {
+      throw new Error("cancelled");
+    }
+    throw err;
+  } finally {
+    if (req.requestId && browserInflight.get(req.requestId) === controller) browserInflight.delete(req.requestId);
+  }
 }
 
 export async function cancelChat(requestId: string): Promise<void> {
-  await bridge()?.inference.cancel(requestId);
+  const b = bridge();
+  if (b) {
+    await b.inference.cancel(requestId);
+    return;
+  }
+  browserInflight.get(requestId)?.abort();
 }
 
 export async function listModels(provider: ProviderId): Promise<ModelInfo[]> {

@@ -17,11 +17,12 @@ const outDir = "/tmp/omnisynth-qa";
 mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-const page =
-  browser
-    .contexts()[0]
-    .pages()
-    .find((p) => p.url().includes("index.html")) ?? browser.contexts()[0].pages()[0];
+const pages = browser.contexts().flatMap((context) => context.pages());
+if (pages.length === 0) {
+  await browser.close();
+  throw new Error(`No pages available on port ${port}; is the app running with OMNISYNTH_QA_PORT?`);
+}
+const page = pages.find((p) => p.url().includes("index.html")) ?? pages[0];
 const errors = [];
 page.on("console", (m) => {
   if (m.type() === "error" || m.type() === "warning") errors.push(`[${m.type()}] ${m.text()}`);
@@ -54,9 +55,20 @@ async function smoke() {
   await shot("02-settings");
   await t("settings-close").click();
   // Add an empty track and draw a few steps.
+  const existingTrackIds = await page.locator('[data-testid^="track-"]').evaluateAll((els) =>
+    els.map((el) => el.getAttribute("data-testid")),
+  );
   await t("add-track").click();
-  await page.waitForSelector('[data-testid="track-track-1"]');
-  const steps = page.locator('[data-testid="track-track-1"] .step');
+  const newTrackId = await page.waitForFunction(
+    (ids) => {
+      const track = [...document.querySelectorAll('[data-testid^="track-"]')].find(
+        (el) => !ids.includes(el.getAttribute("data-testid")),
+      );
+      return track?.getAttribute("data-testid") ?? false;
+    },
+    existingTrackIds,
+  );
+  const steps = page.getByTestId(await newTrackId.jsonValue()).locator(".step");
   for (const i of [0, 4, 8, 12]) await steps.nth(i).click();
   await t("play").click();
   await page.waitForTimeout(1500);

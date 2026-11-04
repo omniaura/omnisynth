@@ -145,8 +145,31 @@ function TrackRow(props: { track: TrackState }) {
 
   function applyNotes(): void {
     try {
-      const notes = JSON.parse(notesText()) as Step[];
-      engine.updateTrack(props.track.id, { notes });
+const parsed: unknown = JSON.parse(notesText());
+        if (
+          !Array.isArray(parsed) ||
+          parsed.some((step) => {
+            if (step === null || typeof step !== "object" || Array.isArray(step)) return true;
+            const s = step as Record<string, unknown>;
+            const validNote = typeof s.note === "string" || (Array.isArray(s.note) && s.note.every((note) => typeof note === "string"));
+            return !(
+              (s.rest === true || s.hit === true || validNote) &&
+              (s.rest === undefined || typeof s.rest === "boolean") &&
+              (s.hit === undefined || typeof s.hit === "boolean") &&
+              (s.note === undefined || validNote) &&
+              (s.velocity === undefined || typeof s.velocity === "number") &&
+              (s.ratchet === undefined || typeof s.ratchet === "number") &&
+              (s.prob === undefined || typeof s.prob === "number") &&
+                (s.cond === undefined || typeof s.cond === "string") &&
+                (s.nudge === undefined || typeof s.nudge === "number") &&
+                (s.slide === undefined || typeof s.slide === "number") &&
+                (s.duration === undefined || typeof s.duration === "string") &&
+                (s.lock === undefined || typeof s.lock === "boolean")
+            );
+          })
+        ) throw new Error("expected an array of valid step objects");
+        const notes = parsed as Step[];
+        engine.updateTrack(props.track.id, { notes });
       setEditing(false);
     } catch (err) {
       store.showToast(`Pattern JSON invalid: ${(err as Error).message}`);
@@ -227,8 +250,10 @@ export default function TrackList() {
 
   async function addEmptyTrack(): Promise<void> {
     await engine.init();
-    const id = `track-${song.tracks.length + 1}`;
-    engine.addTrack({ id, name: `Track ${song.tracks.length + 1}`, instrument: "synth", volume: -8, pattern: { subdivision: "16n", notes: Array.from({ length: 16 }, () => ({ rest: true })) } });
+    let n = song.tracks.length + 1;
+    while (song.tracks.some((track) => track.id === `track-${n}`)) n++;
+    const id = `track-${n}`;
+    engine.addTrack({ id, name: `Track ${n}`, instrument: "synth", volume: -8, pattern: { subdivision: "16n", notes: Array.from({ length: 16 }, () => ({ rest: true })) } });
   }
 
   return (

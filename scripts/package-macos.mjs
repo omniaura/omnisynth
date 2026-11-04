@@ -3,6 +3,7 @@ import { resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { releaseConfig, packagingEnv } from "./release-config.mjs";
 import { withCleanup } from "./with-cleanup.mjs";
+import { prepareSource } from "./prepare-source.mjs";
 
 if (process.platform !== "darwin") throw new Error("macOS packaging must run on a Mac.");
 const unsigned = process.argv.includes("--unsigned");
@@ -18,6 +19,8 @@ if (execFileSync("/usr/bin/which", ["ditto"], { encoding: "utf8" }).trim() !== "
 mkdirSync(".tmp", { recursive: true });
 const snapshot = mkdtempSync(resolve(".tmp/omnisynth-package-"));
 await withCleanup(async () => {
+const resources = join(snapshot, "license-resources");
+prepareSource(resources);
 for (const dir of ["dist", "dist-electron"]) cpSync(dir, join(snapshot, dir), { recursive: true });
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const metadata = Object.fromEntries(["name", "productName", "version", "description", "type", "main", "license"].map((key) => [key, pkg[key]]));
@@ -26,6 +29,7 @@ config.directories = { app: snapshot, output: resolve("release"), buildResources
 config.mac.icon = resolve(config.mac.icon);
 config.mac.entitlements = resolve(config.mac.entitlements);
 config.mac.entitlementsInherit = resolve(config.mac.entitlementsInherit);
+config.extraResources = [{ from: resources, to: "licensing" }];
 const { build, Platform, Arch } = await import("electron-builder");
 const targets = process.argv.includes("--dir") ? ["dir"] : ["dmg", "zip"];
 console.log(`OmniSynth release: signing=${!unsigned} notarization=${!unsigned}`);

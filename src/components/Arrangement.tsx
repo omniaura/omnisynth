@@ -15,7 +15,8 @@ export default function Arrangement() {
   }
 
   function addSection(): void {
-    const n = song.sections.length + 1;
+    let n = 1;
+    while (song.sections.some((s) => s.id === `section-${n}`)) n++;
     engine.createSection(`section-${n}`, `Section ${n}`, 8);
     if (!song.arrangement.includes(`section-${n}`)) engine.setArrangement([...song.arrangement, `section-${n}`]);
   }

@@ -85,7 +85,7 @@ export async function runGenerate(): Promise<void> {
 
   try {
     // Credit-aware: read the router balance and clamp the budget tier before spending.
-    const credits = await bridge()?.ditto.credits().catch(() => null);
+    const credits = (await bridge()?.ditto.credits().catch(() => null)) ?? null;
     const tier = effectiveTier(credits?.balance);
     store.setCredits(credits ?? null);
     if (tier !== store.settings.budget) store.pushLog({ type: "status", text: `Balance ${credits?.balance?.toFixed(2)} ${credits?.currency ?? ""} — running ${tier} instead of ${store.settings.budget}` });

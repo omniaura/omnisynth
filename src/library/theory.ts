@@ -64,7 +64,9 @@ export function chordNotes(key: string, mode: string, numeral: string, octave = 
   const intervals = SCALE_INTERVALS[mode] ?? SCALE_INTERVALS.minor;
   const root = Math.max(0, NOTE_NAMES.indexOf(normalizeNote(key)));
   const p = parseNumeral(numeral);
-  let rootSemis = root + intervals[p.degree % intervals.length];
+  const degreeInterval = intervals[p.degree];
+  if (degreeInterval === undefined) throw new Error(`numeral degree ${p.degree} out of range for mode "${mode}"`);
+  let rootSemis = root + degreeInterval;
   if (p.flat) rootSemis -= 1;
   const third = p.quality === "major" ? 4 : 3;
   const fifth = p.quality === "dim" ? 6 : 7;

@@ -37,7 +37,7 @@ function readTomlString(path: string, key: string): string | undefined {
 
 function which(bin: string): boolean {
   try {
-    execFileSync("/usr/bin/which", [bin], { stdio: "ignore", env: loginEnv() });
+    execFileSync("/usr/bin/which", [bin], { stdio: "ignore", env: loginEnv(), timeout: 4000 });
     return true;
   } catch {
     return false;

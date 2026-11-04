@@ -105,14 +105,14 @@ export function cellular(steps: Step[], rule = 90, seedMode: "pattern" | "random
  */
 export function lsystem(key: string, scale: string, axiom = "0 2 4 .", rules: Record<string, string> = { "0": "0 2", "2": "4 .", "4": "2 0 +4", ".": ". 0" }, depth = 2, octave = 4, length = 32, duration = "8n"): Step[] {
   let s = axiom.trim().split(/\s+/);
-  for (let d = 0; d < depth; d++) s = s.flatMap((sym) => (rules[sym] ? rules[sym].trim().split(/\s+/) : [sym]));
+  for (let d = 0; d < depth; d++) s = s.flatMap((sym) => (rules[sym] ? rules[sym].trim().replace(/([+-])(?=\d)/g, "$1 ").split(/\s+/) : [sym]));
   const notes = scaleNotes(key, scale, octave - 1, octave + 2);
   const degrees = 7;
   let oct = 1; // index offset into the 4-octave table (start at `octave`)
   const out: Step[] = [];
   for (const sym of s) {
     if (out.length >= length) break;
-    if (sym === "+") oct = Math.min(2, oct + 1);
+    if (sym === "+") oct = Math.min(3, oct + 1);
     else if (sym === "-") oct = Math.max(0, oct - 1);
     else if (sym === ".") out.push({ rest: true });
     else if (/^\d$/.test(sym)) {
@@ -171,7 +171,7 @@ export function applyOp(steps: Step[], op: EvolveOp, ctx: EvolveContext): Step[]
       chain.train(steps);
       const len = op.length ?? steps.length;
       const generated = chain.generate(steps, len, op.temperature ?? 1);
-      return generated.length ? generated.map((s, i) => (steps[i]?.lock ? steps[i] : s)) : steps;
+      return generated.length < len ? steps : generated.map((s, i) => (steps[i]?.lock ? steps[i] : s));
     }
     case "cellular":
       return cellular(steps, op.rule ?? 90, op.seed ?? "pattern", op.wrap ?? true, fill);
@@ -245,7 +245,10 @@ export function parseRules(input: unknown): EvolveRule[] {
         const n = Number(rule.every ?? 4);
         return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 4;
       })(),
-      prob: rule.prob === undefined ? 1 : Math.max(0, Math.min(1, Number(rule.prob))),
+      prob: (() => {
+        const n = Number(rule.prob);
+        return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
+      })(),
       ops: rule.ops,
       min_density: rule.min_density,
       max_density: rule.max_density,

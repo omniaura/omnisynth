@@ -32,9 +32,17 @@ await withCleanup(async () => {
     assert.equal(plist("CFBundleIdentifier"), "com.omniaura.omnisynth");
     assert.equal(plist("CFBundleExecutable"), "OmniSynth");
     assert.equal(plist("CFBundleURLTypes:0:CFBundleURLSchemes:0"), "omnisynth");
-    for (const file of ["Contents/MacOS/OmniSynth", "Contents/Resources/app.asar"]) {
+    for (const file of ["Contents/MacOS/OmniSynth", "Contents/Resources/app.asar",
+      "Contents/Resources/licensing/LICENSE", "Contents/Resources/licensing/THIRD_PARTY_NOTICES.txt",
+      "Contents/Resources/licensing/source/electron/bridge.ts", "Contents/Resources/licensing/source/bun.lock"]) {
       assert.equal(digest(join(app, file)), digest(join(unpacked, file)), "DMG/ZIP payload mismatch");
     }
+    const licensing = join(app, "Contents/Resources/licensing");
+    assert.equal(digest(join(licensing, "LICENSE")), digest("LICENSE"), "Packaged application license mismatch");
+    assert.equal(digest(join(licensing, "source/electron/bridge.ts")), digest("electron/bridge.ts"), "Corresponding source mismatch");
+    const inventory = JSON.parse(readFileSync(join(licensing, "source/dependency-inventory.json"), "utf8"));
+    assert.ok(inventory.some((p) => p.name === "hydra-synth"), "Hydra source/notices missing");
+    assert.ok(inventory.some((p) => p.name === "tone"), "Tone source/notices missing");
     if (signed) {
       run("/usr/bin/codesign", ["--verify", "--deep", "--strict", "--verbose=2", app]);
       const details = spawnSync("/usr/bin/codesign", ["-dv", "--verbose=4", app], { encoding: "utf8" });
@@ -48,7 +56,7 @@ await withCleanup(async () => {
   }
   execFileSync(process.execPath, ["scripts/package-smoke.mjs", join(mount, "OmniSynth.app/Contents/MacOS/OmniSynth")], { stdio: "inherit" });
 }, [
-  () => { if (mountedDisk) { run("/usr/bin/hdiutil", ["detach", mount]); mountedDisk = false; detachedDisk = true; } },
+  () => { if (mountedDisk) { try { run("/usr/bin/hdiutil", ["detach", mount]); } catch { run("/usr/bin/hdiutil", ["detach", "-force", mount]); } mountedDisk = false; detachedDisk = true; } },
   () => { if (!mountedDisk || detachedDisk) rmSync(root, { recursive: true, force: true }); },
 ]);
 const files = [dmg, zip];

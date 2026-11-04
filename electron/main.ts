@@ -50,7 +50,7 @@ function handleDeepLink(raw: string): void {
     if (action === "generate") {
       const args = {
         prompt: url.searchParams.get("prompt") ?? "",
-        mode: (url.searchParams.get("mode") as "new" | "iterate" | null) ?? undefined,
+        mode: url.searchParams.get("mode") === "iterate" ? ("iterate" as const) : url.searchParams.get("mode") === "new" ? ("new" as const) : undefined,
         source: url.searchParams.get("source") ?? "deep-link",
       };
       if (win && !win.isDestroyed() && !win.webContents.isLoading()) win.webContents.send(IPC.bridgeGenerateRequest, args);

@@ -18,8 +18,8 @@ const STAGE_HELP: Record<"perceive" | "orchestrate", string> = {
 function DittoCard() {
   const b = bridge();
   const [status, { refetch }] = createResource<DittoStatus | undefined>(async () => b?.ditto.status());
-  const [credits, { refetch: refetchCredits }] = createResource(async () => {
-    const c = (await b?.ditto.credits()) ?? null;
+  const [credits, { refetch: refetchCredits }] = createResource(status, async (s) => {
+    const c = s?.loggedIn ? (await b?.ditto.credits()) ?? null : null;
     store.setCredits(c);
     return c;
   });
@@ -43,10 +43,15 @@ function DittoCard() {
     if (!b) return;
     setErr(null);
     setBusy("Waiting for browser approval…");
-    const res = await b.ditto.login((c) => setCode(c));
-    setBusy(null);
-    setCode(null);
-    if (!res.ok) setErr(res.error ?? "login failed");
+    try {
+      const res = await b.ditto.login((c) => setCode(c));
+      if (!res.ok) setErr(res.error ?? "login failed");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+      setCode(null);
+    }
     await refetch();
     await refreshProviders();
   }
@@ -60,7 +65,7 @@ function DittoCard() {
       store.updateSettings({ orchestrateProvider: "ditto", perceiveProvider: "ditto" });
       store.showToast("Ditto Router endpoint ready");
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(e instanceof Error ? e.message : String(e));
     }
     setBusy(null);
     await refetch();
@@ -68,9 +73,16 @@ function DittoCard() {
   }
 
   async function signOut(): Promise<void> {
-    await b?.ditto.logout();
+    setErr(null);
+    try {
+      await b?.ditto.logout();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      return;
+    }
     await refetch();
     await refreshProviders();
+  }
   }
 
   return (
@@ -86,7 +98,7 @@ function DittoCard() {
         {(c) => (
           <div class="credits" data-testid="credits">
             <span class="credits-balance">
-              {c().balance === null ? "—" : `${c().currency === "USD" ? "$" : ""}${c().balance!.toFixed(2)}`}
+              {c().balance === null ? "—" : `${c().currency === "USD" ? "$" : ""}${c().balance!.toFixed(2)}${c().currency === "USD" ? "" : ` ${c().currency}`}`}
             </span>
             <span class="muted tiny">
               {c().billingMode === "byok" ? "your provider keys" : "Ditto credits"}
@@ -175,16 +187,27 @@ function KeyCard(props: { provider: ProviderId; title: string; placeholder: stri
   const info = () => store.providers().find((p) => p.id === props.provider);
   async function save(): Promise<void> {
     const b = bridge();
-    if (b) await b.providers.setKey(props.provider, val());
-    else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, val());
+    try {
+      const key = val().trim();
+      if (b) await b.providers.setKey(props.provider, key);
+      else localStorage.setItem(`omnisynth.browserKey.${props.provider}`, key);
+    } catch (e) {
+      store.showToast(`Saving ${props.title} key failed: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     setVal("");
     await refreshProviders();
     store.showToast(`${props.title} key saved`);
   }
   async function clear(): Promise<void> {
     const b = bridge();
-    if (b) await b.providers.clearKey(props.provider);
-    else localStorage.removeItem(`omnisynth.browserKey.${props.provider}`);
+    try {
+      if (b) await b.providers.clearKey(props.provider);
+      else localStorage.removeItem(`omnisynth.browserKey.${props.provider}`);
+    } catch (e) {
+      store.showToast(`Clearing ${props.title} key failed: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     await refreshProviders();
   }
   return (

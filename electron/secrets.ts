@@ -14,28 +14,34 @@ function filePath(): string {
 }
 
 function load(): SecretMap {
+  let raw: Record<string, string>;
   try {
-    const raw = JSON.parse(readFileSync(filePath(), "utf-8")) as Record<string, string>;
-    const out: SecretMap = {};
-    for (const [k, v] of Object.entries(raw)) {
-      if (v.startsWith("enc:") && safeStorage.isEncryptionAvailable()) {
-        out[k] = safeStorage.decryptString(Buffer.from(v.slice(4), "base64"));
-      } else if (v.startsWith("raw:")) {
-        out[k] = v.slice(4);
-      }
-    }
-    return out;
+    raw = JSON.parse(readFileSync(filePath(), "utf-8")) as Record<string, string>;
   } catch {
     return {};
   }
+  const out: SecretMap = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v !== "string") continue;
+    if (v.startsWith("enc:")) {
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error("safeStorage unavailable: stored secrets cannot be decrypted");
+      }
+      out[k] = safeStorage.decryptString(Buffer.from(v.slice(4), "base64"));
+    } else if (v.startsWith("raw:")) {
+      out[k] = v.slice(4);
+    }
+  }
+  return out;
 }
 
 function save(map: SecretMap): void {
   const raw: Record<string, string> = {};
   for (const [k, v] of Object.entries(map)) {
-    raw[k] = safeStorage.isEncryptionAvailable()
-      ? `enc:${safeStorage.encryptString(v).toString("base64")}`
-      : `raw:${v}`;
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error("safeStorage unavailable: refusing to store secrets in plaintext");
+      }
+      raw[k] = `enc:${safeStorage.encryptString(v).toString("base64")}`;
   }
   mkdirSync(app.getPath("userData"), { recursive: true });
   writeFileSync(filePath(), JSON.stringify(raw, null, 2), { mode: 0o600 });

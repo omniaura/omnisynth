@@ -107,7 +107,7 @@ balance and a Top up link are shown in Settings → Ditto.
 
 ## Security notes
 
-- Loopback only; random port; 32-byte random token per launch; 0600 discovery
+- Loopback only; random port; 24-byte random token per launch; 0600 discovery
   file; `Origin` header refused.
 - Ditto Desktop's toolkit is additionally gated by its MCP credential
   capability (`omnisynth`), which the user grants in Settings.

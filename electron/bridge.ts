@@ -106,8 +106,13 @@ export class Bridge {
     const port = typeof address === "object" && address ? address.port : 0;
     this.server = server;
     this.info = { port, token, pid: process.pid, version: app.getVersion(), appPath: app.getPath("exe"), startedAt: new Date().toISOString(), protocol: 1 };
-    mkdirSync(bridgeDir(), { recursive: true });
-    writeFileSync(discoveryPath(), JSON.stringify(this.info, null, 2), { mode: 0o600 });
+    try {
+      mkdirSync(bridgeDir(), { recursive: true });
+      writeFileSync(discoveryPath(), JSON.stringify(this.info, null, 2), { mode: 0o600 });
+    } catch (err) {
+      this.stop();
+      throw err;
+    }
     return this.info;
   }
 
@@ -120,7 +125,10 @@ export class Bridge {
     this.server?.close();
     this.server = null;
     this.info = null;
-    for (const p of this.pending.values()) clearTimeout(p.timer);
+    for (const [id, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.resolve({ id, ok: false, error: "bridge is shutting down" });
+    }
     this.pending.clear();
   }
 
@@ -152,11 +160,12 @@ export class Bridge {
     res.setHeader("Cache-Control", "no-store");
     // Loopback only; still refuse browser cross-origin use so a web page can't drive the DAW.
     if (req.headers.origin) return json(res, 403, { error: "forbidden_origin" });
-    if (url.pathname === "/health") {
-      const state = await this.callRenderer({ kind: "state" }, 3000);
-      return json(res, 200, { ok: true, version: this.info?.version, pid: process.pid, song: state.ok ? state.result : null });
-    }
     const auth = req.headers.authorization ?? "";
+    if (url.pathname === "/health") {
+      const authorized = auth === `Bearer ${token}`;
+      const state = authorized ? await this.callRenderer({ kind: "state" }, 3000) : null;
+      return json(res, 200, { ok: true, version: this.info?.version, pid: process.pid, song: state?.ok ? state.result : null });
+    }
     if (auth !== `Bearer ${token}`) return json(res, 401, { error: "invalid_token", message: "Authorization: Bearer <token> from bridge.json is required." });
 
     try {
@@ -178,6 +187,10 @@ export class Bridge {
         const body = (await readJson(req)) as GenerateRequest;
         const attachments = this.resolveAttachments(body.attachments);
         const wait = body.wait !== false;
+        if (!wait) {
+          const win = this.windowProvider();
+          if (!win || win.isDestroyed()) return json(res, 503, { ok: false, error: "OmniSynth window is not open" });
+        }
         const call = this.callRenderer({ kind: "generate", args: { ...body, attachments } }, wait ? 15 * 60_000 : 5000);
         if (!wait) return json(res, 202, { ok: true, accepted: true });
         const r = await call;

@@ -1,0 +1,7 @@
+Bevy is developed by the Bevy Contributors.
+This slice uses Bevy 0.19.1, licensed under MIT OR Apache-2.0.
+Source: https://github.com/bevyengine/bevy/tree/v0.19.1
+
+Bevy-LICENSE-MIT reproduces the upstream v0.19.1 LICENSE-MIT unchanged.
+Upstream Git blob: 9cf106272ac3b56b0c4c80218e8fc10a664ca5f4
+The dependency notice bundle also includes the licenses shipped in each crate.

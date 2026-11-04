@@ -65,6 +65,7 @@ interface Track {
 }
 
 export interface TrackState {
+  isDrum: boolean;
   id: string;
   name: string;
   instrument: string;
@@ -900,6 +901,7 @@ export class AudioEngine {
 
   private trackState(t: Track): TrackState {
     return {
+      isDrum: t.isDrum,
       id: t.config.id,
       name: t.config.name,
       instrument: t.config.instrument,

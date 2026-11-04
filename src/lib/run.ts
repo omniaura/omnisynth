@@ -4,6 +4,7 @@ import { bridge, detectProviders } from "../agent/client";
 import { engine } from "../engine/engine";
 import { store } from "../stores/app";
 import { toolContext } from "./songs";
+import { strudel } from "../engine/strudel";
 
 /**
  * Drives one "generate" run: Perceive (optional) → Orchestrate, writing
@@ -109,7 +110,7 @@ export async function runGenerate(): Promise<void> {
     void bridge()?.ditto.credits().then((c) => store.setCredits(c)).catch(() => undefined);
     store.setStatus("");
     store.showToast(summary.length > 160 ? `${summary.slice(0, 160)}…` : summary);
-    if (!engine.isPlaying && engine.tracks.size > 0) await engine.play();
+    if (strudel.selected() === "tone" && !engine.isPlaying && engine.tracks.size > 0) await strudel.play();
   } catch (err) {
     const msg = (err as Error).message;
     if (msg !== "cancelled") {

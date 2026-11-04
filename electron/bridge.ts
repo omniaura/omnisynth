@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
 import type { Attachment } from "../shared/ipc";
 import { IPC } from "../shared/ipc";
+import { serveStrudel } from "./strudel-assets";
 
 /**
  * The OmniSynth bridge: a loopback HTTP + MCP (streamable HTTP, JSON-RPC)
@@ -157,6 +158,7 @@ export class Bridge {
 
   private async handle(req: IncomingMessage, res: ServerResponse, token: string): Promise<void> {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (req.method === "GET" && url.pathname.startsWith("/strudel/")) return serveStrudel(url.pathname, res);
     res.setHeader("Cache-Control", "no-store");
     // Loopback only; still refuse browser cross-origin use so a web page can't drive the DAW.
     if (req.headers.origin) return json(res, 403, { error: "forbidden_origin" });

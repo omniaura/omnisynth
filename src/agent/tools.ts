@@ -6,6 +6,7 @@ import { EVOLVE_OP_DOC, cellular as caStep, lsystem as lsys, parseRules } from "
 import { MOD_SOURCE_DOC, parseModSource, type Modulation } from "../engine/modulation";
 import { applyTemplate, listLibrary, usePatch, usePattern, useProgression } from "../library";
 import { KNOWLEDGE } from "../library/knowledge";
+import { strudel } from "../engine/strudel";
 
 /**
  * The DAW tool surface the orchestrator agent calls. Definitions are
@@ -38,6 +39,9 @@ export function toolDefinitions(): ChatToolDefinition[] {
     function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } },
   });
   return [
+    def("evaluate_strudel", "Write and play upstream Strudel live code. Supports mini notation, stack, patterns, synths, effects and samples(). Selects Strudel and stops Tone playback without deleting Tone tracks. Returns evaluation errors for correction; use strudel_status to verify audio energy. No external samples are preloaded: start with sbd, sine, sawtooth, white. Example: setcpm(30); stack(s('sbd*4').gain(0.5), note('c3 eb3 g3 bb3').s('sine').gain(0.2))", { code: { type: "string", maxLength: 32000 } }, ["code"]),
+    def("strudel_status", "Read the Strudel draft, evaluation/scheduler error, playing state, events per cycle, audio-context state, measured RMS and four frequency bands.", {}),
+    def("select_music_engine", "Stop playback and choose Strudel live code or the existing Tone DAW. Switching preserves Tone tracks and the Strudel draft.", { engine: { type: "string", enum: ["tone", "strudel"] } }, ["engine"]),
     // --- Transport / song ---
     def("set_bpm", "Set the song tempo.", { bpm: { type: "number", description: "40-300" } }, ["bpm"]),
     def(
@@ -357,6 +361,16 @@ function ts(args: Record<string, unknown>): [number, number] | undefined {
 }
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
+  if (name === "evaluate_strudel") {
+    if (typeof args.code !== "string") return "Error: Strudel code is required.";
+    try { return await strudel.evaluate(args.code); } catch (error) { return `Error: ${(error as Error).message}`; }
+  }
+  if (name === "strudel_status") return JSON.stringify({ engine: strudel.selected(), code: strudel.code(), ...strudel.status() });
+  if (name === "select_music_engine") {
+    if (args.engine !== "tone" && args.engine !== "strudel") return "Error: choose tone or strudel.";
+    await strudel.select(args.engine);
+    return `Selected ${args.engine}; playback stopped, both projects preserved.`;
+  }
   await engine.init();
   switch (name) {
     case "set_bpm": {
@@ -538,10 +552,10 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
       return `View: ${view}.`;
 
     case "play":
-      await engine.play();
+      await strudel.play();
       return "Playing.";
     case "stop":
-      engine.stop();
+      await strudel.stop();
       return "Stopped.";
     case "save_song":
       return `Saved as ${ctx.saveSong(String(args.name))}.`;
@@ -618,6 +632,8 @@ function generatePattern(args: Record<string, unknown>): unknown {
 /** Song state trimmed for the model's context: patterns as short strings. */
 export function compactState(state: SongState): Record<string, unknown> {
   return {
+    musicEngine: strudel.selected(),
+    strudel: { code: strudel.code(), ...strudel.status() },
     bpm: state.bpm,
     timeSignature: state.timeSignature.join("/"),
     key: `${state.key} ${state.scale}`,
@@ -628,6 +644,7 @@ export function compactState(state: SongState): Record<string, unknown> {
       instrument: t.instrument,
       volume: t.volume,
       muted: t.muted || undefined,
+      solo: t.solo || undefined,
       grid: t.pattern.subdivision,
       steps: describeSteps(t.pattern.notes, 64),
       fx: t.fx.length ? t.fx.map((f, i) => `${i}:${f.type}`).join(">") : undefined,

@@ -4,6 +4,7 @@ import { cancelChat, chat, newRequestId } from "./client";
 import { briefToText, type Brief } from "./perceive";
 import { compactState, executeTool, toolDefinitions, type ToolContext } from "./tools";
 import { KNOWLEDGE } from "../library/knowledge";
+import { strudel } from "../engine/strudel";
 
 /**
  * Stage 2 — Orchestrate. A tool-calling agent loop that turns the brief into
@@ -49,13 +50,24 @@ Craft rules:
 - Work in batches: at most 8 tool calls per turn, patterns of one or two bars (use sections, generate_pattern and evolution for length instead of writing 64-step arrays). Big single responses get cut off.
 - Keep going until the song is complete, then call done with a short summary for the artist. Do not reply with prose before done.`;
 
+const STRUDEL_SYSTEM = `You are OmniSynth's electronic-music producer. The artist selected STRUDEL.
+Compose by writing genuine Strudel code and calling evaluate_strudel. This uses upstream Strudel, not Tone's step grid.
+Use setcpm(BPM/4) for 4/4; stack() for layers, mini notation, slow/fast/every/euclid, chords/scales, synthesis, effects and variations.
+No external samples are preloaded. The synth sounds sine, triangle, sawtooth, square, white and sbd work offline.
+Start with a layered, musically coherent synth-only version. If using samples(), load an explicit public HTTPS bank first and handle loading errors.
+Example: setcpm(30); stack(s("sbd*4").gain(0.5), note("<c2 eb2 f2 bb1>").s("sawtooth").lpf(700).gain(0.2), note("c4 [eb4 g4] bb4 g4").s("sine").slow(2).gain(0.15))
+Call strudel_status after evaluation. Fix errors and re-evaluate; a code update is not proof of audible playback.
+You may use set_visuals for Hydra. Do not call Tone track/template tools unless asked to edit Tone tracks; they do not create Strudel music.
+Preserve the existing Tone project. Use stop/play for the selected engine. Do not claim you listened to music or verified acoustic quality.
+Finish with done and a brief summary of the code, layers and any remaining errors.`;
+
 function buildMessages(brief: Brief | null, prompt: string): ChatMessage[] {
   const state = compactState(engine.getState());
   const briefText = brief ? `CREATIVE BRIEF\n${briefToText(brief)}` : "";
   const knowledge = `PRODUCER KNOWLEDGE\n${KNOWLEDGE}`;
   const user = [prompt.trim() ? `ARTIST PROMPT\n${prompt.trim()}` : "", briefText, knowledge, `CURRENT SONG STATE\n${JSON.stringify(state)}`].filter(Boolean).join("\n\n");
   return [
-    { role: "system", content: SYSTEM },
+    { role: "system", content: strudel.selected() === "strudel" ? STRUDEL_SYSTEM : SYSTEM },
     { role: "user", content: user },
   ];
 }

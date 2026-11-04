@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 export function prepareSource(destination, root = process.cwd()) {
   const source = join(destination, "source");
   mkdirSync(source, { recursive: true });
-  const entries = ["src", "electron", "shared", "docs", "scripts", "build", "assets", "public", ".github",
+  const entries = ["src", "electron", "shared", "strudel", "vite.strudel.config.ts", "docs", "scripts", "build", "assets", "public", ".github",
     "LICENSE", "README.md", "third-party", "package.json", "bun.lock", "tsconfig.json",
     "tsconfig.node.json", "vite.config.ts", "electron-builder.json"];
   const excluded = new Set([".git", "node_modules", ".tmp", ".env", ".npmrc", ".DS_Store"]);

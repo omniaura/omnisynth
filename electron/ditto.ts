@@ -47,6 +47,7 @@ function cliConfig(): { apiKey?: string; defaultEndpoint?: string } | undefined 
 /** The account credential: app login, then DITTO_API_KEY, then the heyditto CLI, then Ditto Desktop's linked account. */
 export function readDittoSession(): Session {
   const endpointKey = getSecret(SECRET_ENDPOINT_KEY);
+  const endpointRaw = getSecret(SECRET_ENDPOINT);
   let endpoint: DittoEndpoint | undefined;
   if (endpointRaw) {
     try {

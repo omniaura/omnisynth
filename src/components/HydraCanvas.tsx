@@ -2,6 +2,7 @@ import { onMount, onCleanup, createEffect } from "solid-js";
 import type Hydra from "hydra-synth";
 import { engine } from "../engine/engine";
 import { store } from "../stores/app";
+import { strudel } from "../engine/strudel";
 
 /**
  * Full-window Hydra canvas. Visual code from the store (user- or agent-written)
@@ -23,6 +24,13 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
   const bins = new Uint8Array(256);
 
   function tickAudio(): void {
+    if (strudel.selected() === "strudel") {
+      const bands = strudel.status().bands;
+      bands.forEach((band, i) => { audio.fft[i] = audio.fft[i] * 0.6 + band * 0.4; });
+      audio.level = strudel.status().rms;
+      raf = requestAnimationFrame(tickAudio);
+      return;
+    }
     const node = engine.analyserNode;
     if (node) {
       node.getByteFrequencyData(bins);
@@ -47,33 +55,6 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
     raf = requestAnimationFrame(tickAudio);
   }
 
-  onMount(async () => {
-    if (!canvasRef) return;
-    const HydraModule = await import("hydra-synth");
-    const HydraClass = HydraModule.default;
-    canvasRef.width = canvasRef.clientWidth;
-    canvasRef.height = canvasRef.clientHeight;
-    hydra = new HydraClass({
-      canvas: canvasRef,
-      detectAudio: false,
-      enableStreamCapture: false,
-      autoLoop: true,
-      makeGlobal: false,
-      numSources: 4,
-      numOutputs: 4,
-      precision: "mediump",
-    });
-    const ro = new ResizeObserver(() => {
-      if (!canvasRef || !hydra) return;
-      canvasRef.width = canvasRef.clientWidth;
-      canvasRef.height = canvasRef.clientHeight;
-      hydra.setResolution(canvasRef.width, canvasRef.height);
-    });
-    ro.observe(canvasRef);
-    raf = requestAnimationFrame(tickAudio);
-    evaluate(store.visuals());
-    onCleanup(() => {
-      ro.disconnect();
   onMount(() => {
     let disposed = false;
     let ro: ResizeObserver | undefined;
@@ -110,9 +91,7 @@ export default function HydraCanvas(props: { onError: (msg: string | null) => vo
       ro.observe(canvas);
       raf = requestAnimationFrame(tickAudio);
       evaluate(store.visuals());
-    })();
-  });
-    });
+    })().catch((error) => props.onError((error as Error).message));
   });
 
   function evaluate(code: string): void {

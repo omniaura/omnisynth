@@ -8,6 +8,8 @@ import ModPanel from "./components/ModPanel";
 import Composer from "./components/Composer";
 import Settings from "./components/Settings";
 import CodeEditor from "./components/CodeEditor";
+import StrudelPanel from "./components/StrudelPanel";
+import { strudel } from "./engine/strudel";
 import { engine } from "./engine/engine";
 import { store } from "./stores/app";
 import { refreshProviders } from "./lib/run";
@@ -30,8 +32,8 @@ export default function App() {
     if (typing) return;
     if (e.key === " ") {
       e.preventDefault();
-      if (engine.isPlaying) engine.stop();
-      else void engine.play();
+      if (engine.isPlaying || strudel.status().playing) void strudel.stop();
+      else void strudel.play().catch((error) => store.showToast(error.message));
     }
     if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
@@ -80,6 +82,7 @@ export default function App() {
           <Transport onToggleView={toggleView} />
           <main class={`workspace ${store.composerOpen() ? "" : "composer-hidden"}`}>
             <div class="center">
+              <Show when={strudel.selected() === "strudel"}><StrudelPanel /></Show>
               <Arrangement />
               <TrackList />
               <ModPanel />

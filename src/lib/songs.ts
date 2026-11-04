@@ -2,6 +2,18 @@ import { engine, type SongFile } from "../engine/engine";
 import { store } from "../stores/app";
 import { bridge } from "../agent/client";
 import type { ToolContext } from "../agent/tools";
+import { strudel } from "../engine/strudel";
+
+type ProjectFile = SongFile & { strudel?: { code: string; selected: boolean } };
+function exportProject(name: string): ProjectFile {
+  return { ...engine.exportSong(name, store.visuals()), strudel: { code: strudel.code(), selected: strudel.selected() === "strudel" } };
+}
+async function importProject(file: ProjectFile): Promise<void> {
+  await strudel.stop();
+  await engine.importSong(file);
+  if (file.strudel && typeof file.strudel.code === "string") strudel.setCode(file.strudel.code);
+  await strudel.select(file.strudel?.selected ? "strudel" : "tone");
+}
 
 /** Song persistence: a local library in localStorage plus file export/import through the shell. */
 
@@ -25,7 +37,7 @@ function index(): string[] {
 
 export function saveSong(name: string): string {
   const baseKey = `omnisynth.song.${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-  const file = engine.exportSong(name, store.visuals());
+  const file = exportProject(name);
   let key = baseKey;
   for (let suffix = 1; ; suffix++) {
     const existing = localStorage.getItem(key);
@@ -61,8 +73,8 @@ export function listSongs(): SavedSong[] {
 export async function loadSong(key: string): Promise<string> {
   const raw = localStorage.getItem(key);
   if (!raw) throw new Error(`song "${key}" not found`);
-  const file = JSON.parse(raw) as SongFile;
-  await engine.importSong(file);
+  const file = JSON.parse(raw) as ProjectFile;
+  await importProject(file);
   if (file.visuals) store.setVisuals(file.visuals);
   store.setSongName(file.name ?? "Untitled");
   return `Loaded "${file.name}" (${file.tracks.length} tracks, ${file.bpm} BPM).`;
@@ -74,7 +86,7 @@ export function deleteSong(key: string): void {
 }
 
 export async function exportSongFile(): Promise<void> {
-  const file = engine.exportSong(store.songName(), store.visuals());
+  const file = exportProject(store.songName());
   const json = JSON.stringify(file, null, 2);
   const b = bridge();
   if (b) {
@@ -96,8 +108,8 @@ export async function importSongFile(): Promise<void> {
   if (!b) return;
   const json = await b.files.openJson();
   if (!json) return;
-  const file = JSON.parse(json) as SongFile;
-  await engine.importSong(file);
+  const file = JSON.parse(json) as ProjectFile;
+  await importProject(file);
   if (file.visuals) store.setVisuals(file.visuals);
   store.setSongName(file.name ?? "Imported");
   store.showToast(`Imported "${file.name ?? "song"}"`);

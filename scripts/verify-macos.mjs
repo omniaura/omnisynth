@@ -32,6 +32,9 @@ await withCleanup(async () => {
     assert.equal(plist("CFBundleIdentifier"), "com.omniaura.omnisynth");
     assert.equal(plist("CFBundleExecutable"), "OmniSynth");
     assert.equal(plist("CFBundleURLTypes:0:CFBundleURLSchemes:0"), "omnisynth");
+    const iconName = plist("CFBundleIconFile");
+    const iconFile = iconName.endsWith(".icns") ? iconName : `${iconName}.icns`;
+    assert.equal(digest(join(app, "Contents/Resources", iconFile)), digest("build/icon.icns"), "Packaged app icon differs from the selected source icon");
     for (const file of ["Contents/MacOS/OmniSynth", "Contents/Resources/app.asar",
       "Contents/Resources/licensing/LICENSE", "Contents/Resources/licensing/THIRD_PARTY_NOTICES.txt",
       "Contents/Resources/licensing/source/electron/bridge.ts", "Contents/Resources/licensing/source/bun.lock"]) {
@@ -64,5 +67,5 @@ await withCleanup(async () => {
 ]);
 const files = [dmg, zip];
 writeFileSync("release/SHA256SUMS.txt", files.map((path) => `${digest(path)}  ${path.slice(path.lastIndexOf("/") + 1)}\n`).join(""));
-writeFileSync("release/provenance.json", JSON.stringify({ repository: "omniaura/omnisynth", sourceSha: run("git", ["rev-parse", "HEAD"]).trim(), workflowSha: process.env.GITHUB_SHA || null, runId: process.env.GITHUB_RUN_ID || null, version: pkg.version, architecture: "arm64", signed, notarizationVerified: signed, published: false, updaterEnabled: false }, null, 2));
+writeFileSync("release/provenance.json", JSON.stringify({ repository: "omniaura/omnisynth", sourceSha: run("git", ["rev-parse", "HEAD"]).trim(), workflowSha: process.env.GITHUB_SHA || null, runId: process.env.GITHUB_RUN_ID || null, version: pkg.version, architecture: "arm64", iconSha256: digest("build/icon.icns"), signed, notarizationVerified: signed, published: false, updaterEnabled: false }, null, 2));
 console.log(`Verified DMG and ZIP; signing/notarization checked=${signed}. Publication and updater remain inactive.`);

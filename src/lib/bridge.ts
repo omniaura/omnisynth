@@ -43,15 +43,14 @@ export function installBridgeHandlers(): () => void {
         await engine.init();
         return compactState(engine.getState());
       case "tool": {
+        if (privateHistoryTool(call.name ?? "")) throw new Error("Conversation history is private to the local Producer chat.");
+        await engine.init();
+        const result = await executeTool(call.name ?? "", (call.args as Record<string, unknown>) ?? {}, toolContext);
+        if (result.startsWith("Error")) throw new Error(result.replace(/^Error:?\s*/, ""));
         if (store.running() === "idle") {
           store.pushLog({ type: "tool_call", text: `${call.name} (via bridge)`, tool: call.name });
           store.pushLog({ type: "tool_result", text: result.length > 300 ? `${result.slice(0, 300)}…` : result, tool: call.name, ok: true });
         }
-        await engine.init();
-        const result = await executeTool(call.name ?? "", (call.args as Record<string, unknown>) ?? {}, toolContext);
-        if (result.startsWith("Error")) throw new Error(result.replace(/^Error:?\s*/, ""));
-        store.pushLog({ type: "tool_call", text: `${call.name} (via bridge)`, tool: call.name });
-        store.pushLog({ type: "tool_result", text: result.length > 300 ? `${result.slice(0, 300)}…` : result, tool: call.name, ok: true });
         return result;
       }
       case "generate": {

@@ -154,7 +154,7 @@ this Apple silicon candidate.
 
 The owner selected AGPL-3.0-only for the full Electron app on 2026-11-04.
 The root LICENSE and package metadata now agree. Hydra is retained; the
-current DAW uses Tone.js, with a Strudel surface planned separately.
+current DAW uses Tone.js and includes a separate Strudel live-code surface.
 The original MIDI Gen MIT notice is retained in `third-party/`.
 Packaging includes this checkout's application source, installed production
 dependency source, dependency inventory and license notices under
@@ -165,6 +165,30 @@ The independent Bevy experiment retains its own MIT license.
 AGPL selection does not publish the private repository, configure signing
 secrets, notarize a package or activate an updater. Validate matching source,
 dependency notices and any additional asset terms before public distribution.
+
+## Release closeout (2026-11-08)
+
+The full Electron candidate now integrates the selected Light loom icon from
+main commit `c1f420863b14f423bb4b02ea91f739b83239f6c5`. Artifact verification
+compares the icon in the built app, DMG and ZIP to `build/icon.icns`, and records
+its SHA-256 in provenance. The selected icon hash is
+`9d94363ab870b79a8f972fcab737a2d4fa846769df058666e96109fc97ff77fc`.
+Both unsigned and signed workflows exercise the continuing-conversation fixture.
+
+The November 4 package failure came from a later bridge review suggestion that
+used a tool result before its declaration and removed the local-history guard.
+The closeout restores the guard and records completed external calls only while
+the Producer is idle. Solid is pinned to 1.9.18, carrying the reviewed
+serialization dependency correction into the full Electron candidate.
+
+Read-only preflight on November 8 found a valid local Omni Aura Developer ID
+identity, but no repository/organization signing secrets or release environment
+in `omniaura/omnisynth`. These observations do not prove private-key use,
+notarization, or a signed release. The owner setup above remains the precise
+credential gate; do not copy credentials from Ditto or weaken the environment
+policy to make a release run. The installed app with a manually replaced icon
+remains an unsigned QA candidate until a complete signed artifact passes
+verification.
 
 References: [electron-builder v26 macOS options](https://www.electron.build/v26/docs/mac/),
 [Electron notarization](https://github.com/electron/notarize),

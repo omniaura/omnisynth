@@ -33,7 +33,7 @@ jobs:
       - name: Verify DMG, ZIP and packaged UI
         run: node scripts/verify-macos.mjs --unsigned
       - name: Verify continuing producer conversation (isolated model fixture)
-        run: node scripts/conversation-smoke.mjs .tmp/conversation-qa
+        run: node scripts/conversation-smoke.mjs .tmp/conversation-qa release/mac-arm64/OmniSynth.app/Contents/MacOS/OmniSynth
       - name: Stage only conversation evidence for retention
         if: always()
         run: |

@@ -219,6 +219,18 @@ the independently reproduced native control, which now requires the first
 valid replacement to succeed. The expanded native fixture passes after the
 fix; a fresh macOS package run is still required.
 
+Timeout teardown now sends a terminal disposal command before detaching the
+old frame. That command invalidates its queued work, hushes and closes its
+AudioContext, then acknowledges completion. A one-second removal fallback
+bounds an unresponsive frame. The native test observes the real close promise
+and `closed` context state; it failed on plain frame removal and passes with
+the handshake, followed by successful recovery in a fresh frame. This proves
+engine teardown, not physical speaker output.
+
+Both Mac workflows now pass the built OmniSynth executable to the conversation
+fixture. It verifies packaged identity and the launched executable path.
+Checkout-mode native QA remains available on Boat; it is not packaged proof.
+
 The owner selected protected GitHub signing on November 8. Live organization
 metadata reports `omniaura` on Free. Creating `omnisynth-release` with a required
 owner reviewer, self-review prevention and disabled administrator bypass returned

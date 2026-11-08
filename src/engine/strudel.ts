@@ -81,7 +81,23 @@ function resetFrame(ownedFrame: HTMLIFrameElement | null, operation: number, rea
   }
   pending.clear();
   removeListener();
-  ownedFrame.remove();
+  const ownedOrigin = origin;
+  const id = ++nextID;
+  let removed = false;
+  const finish = () => {
+    if (removed) return;
+    removed = true;
+    clearTimeout(timer);
+    window.removeEventListener("message", receive);
+    ownedFrame.remove();
+  };
+  const receive = (event: MessageEvent) => {
+    if (event.source === ownedFrame.contentWindow && event.origin === ownedOrigin && event.data?.channel === "omnisynth-strudel" && event.data.type === "disposed" && event.data.id === id) finish();
+  };
+  const timer = setTimeout(finish, 1000);
+  window.addEventListener("message", receive);
+  try { ownedFrame.contentWindow?.postMessage({ channel: "omnisynth-strudel", action: "dispose", operation: Number.MAX_SAFE_INTEGER, id }, ownedOrigin); }
+  catch { finish(); }
   frame = null;
   ready = null;
   setStatus((state) => ({ ...state, playing: false, rms: 0, bands: [0, 0, 0, 0] }));

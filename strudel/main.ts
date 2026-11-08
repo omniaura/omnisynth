@@ -17,10 +17,26 @@ const initialization = initStrudel({
   onEvalError: (value: Error) => { error = value.message; },
 }).then(() => { ready = true; message({ type: "ready" }); });
 
+let disposal: Promise<void> | undefined;
+function dispose(): Promise<void> {
+  return disposal ??= (async () => {
+    generation = Number.MAX_SAFE_INTEGER;
+    try { hush(); } catch { /* Initialization may still be pending. */ }
+    playing = false;
+    await getAudioContext().close();
+  })();
+}
+window.addEventListener("pagehide", () => void dispose().catch(() => {}));
+window.addEventListener("unload", () => void dispose().catch(() => {}));
+
 window.addEventListener("message", (event) => {
   if (event.source !== parent || event.data?.channel !== "omnisynth-strudel") return;
   const { id, action, code, operation } = event.data;
   if (!Number.isSafeInteger(id) || !Number.isSafeInteger(operation)) return;
+  if (action === "dispose") {
+    void dispose().then(() => message({ type: "disposed", id, ok: true }), () => message({ type: "disposed", id, ok: false }));
+    return;
+  }
   if (operation < generation) { message({ type: "reply", id, ok: false, error: "Superseded command." }); return; }
   generation = operation;
   const ticket = operation;

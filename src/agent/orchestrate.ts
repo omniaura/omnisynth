@@ -140,6 +140,7 @@ export async function orchestrate(opts: {
         continue;
       }
       // A text answer may complete an ordinary question; do not force tool use.
+      if (noToolTurns < 3 && !text.trim()) continue;
       return text.trim() ? text : "The model returned no answer. Try sending your message again.";
     }
     noToolTurns = 0;

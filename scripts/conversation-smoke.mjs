@@ -4,13 +4,19 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 const out = resolve(process.argv[2] || ".tmp/conversation-qa");
+const executablePath = process.argv[3] ? resolve(process.argv[3]) : undefined;
 mkdirSync(out, { recursive: true });
 const profile = join(out, "profile");
 const env = Object.fromEntries(["PATH", "DISPLAY", "XAUTHORITY", "TMPDIR", "PULSE_SERVER", "ALSA_CONFIG_PATH", "LP_NUM_THREADS"].filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
 Object.assign(env, { HOME: join(out, "home"), XDG_CONFIG_HOME: join(out, "home/.config"), SHELL: "/bin/sh", OMNISYNTH_QA_USER_DATA_DIR: profile });
 let app;
 try {
-  app = await electron.launch({ args: ["--no-sandbox", "."], env, timeout: 60000 });
+  app = await electron.launch({ executablePath, args: executablePath ? ["--no-sandbox"] : ["--no-sandbox", "."], env, timeout: 60000 });
+  if (executablePath) {
+    const identity = await app.evaluate(({ app }) => ({ packaged: app.isPackaged, executable: process.execPath }));
+    assert.equal(identity.packaged, true);
+    assert.equal(resolve(identity.executable), executablePath);
+  }
   await app.evaluate(({ ipcMain }) => {
     globalThis.qaRequests = [];
     ipcMain.removeHandler("inference:chat");
@@ -84,6 +90,21 @@ try {
   await generate("Recover from a syntax error and run the repaired pattern.");
   assert.equal(JSON.parse(await tool("strudel_status")).error, null);
   const priorCode = JSON.parse(await tool("strudel_status")).code;
+  await page.evaluate(() => {
+    globalThis.qaClosedAudio = [];
+    window.addEventListener("message", (event) => {
+      if (event.data?.channel === "qa-audio-closed") globalThis.qaClosedAudio.push(event.data.state);
+    });
+  });
+  const observedAudioFrame = page.frames().find((frame) => frame.url().includes("/strudel/index.html"));
+  assert.ok(observedAudioFrame);
+  await observedAudioFrame.evaluate(() => {
+    const close = AudioContext.prototype.close;
+    AudioContext.prototype.close = async function () {
+      await close.call(this);
+      parent.postMessage({ channel: "qa-audio-closed", state: this.state }, "*");
+    };
+  });
   const rawEvaluate = (code) => fetch(base + "/tools/evaluate_strudel", { method: "POST", headers, body: JSON.stringify({ code }) }).then((response) => response.json());
   assert.equal((await rawEvaluate("stack(")).ok, false);
   const firstRepair = await rawEvaluate(priorCode);
@@ -118,6 +139,8 @@ try {
   assert.ok(timedOutResults.every((result) => !result.ok && /timed out/.test(result.error)), JSON.stringify(timedOutResults));
   await page.waitForTimeout(2500);
   assert.equal(JSON.parse(await tool("strudel_status")).playing, false, "A queued evaluation played after its request timed out");
+  assert.equal(await page.evaluate(() => globalThis.qaClosedAudio.includes("closed")), true, "The discarded frame did not finish closing its audio context");
+  assert.equal(observedAudioFrame.isDetached(), true, "The disposed audio frame was retained");
   await tool("evaluate_strudel", { code: priorCode });
   const cancelled = generate("Cancel this queued edit.");
   await page.getByTestId("cancel").waitFor();
@@ -204,7 +227,7 @@ try {
   assert.equal(nextSearch.matches[0].id, "old-0");
   assert.equal(nextSearch.nextBefore, null);
   assert.deepEqual(errors, []);
-  writeFileSync(join(out, "proof.json"), JSON.stringify({ passed: true, checks: ["multi-turn context", "tool transcript replay", "question without mutation or auto-play", "syntax recovery", "AbortError cancel", "reload history", "reload draft and engine", "bridge draft preservation", "bridge history privacy", "62-turn archive", "older history search", "older message scroll anchor", "Tone preservation"], limitations: ["Deterministic model fixture; actual model prompt QA is separate"] }, null, 2));
+  writeFileSync(join(out, "proof.json"), JSON.stringify({ passed: true, checks: ["multi-turn context", "tool transcript replay", "question without mutation or auto-play", "syntax recovery", "AbortError cancel", "reload history", "reload draft and engine", "bridge draft preservation", "bridge history privacy", "62-turn archive", "older history search", "older message scroll anchor", "Tone preservation", "first valid syntax repair", "single ordinary-question request", "single padded reply in view and history", "overlapping evaluation ownership", "prompt stop", "expired queue does not play", "closed audio context before frame disposal"], limitations: ["Deterministic model fixture; actual model prompt QA is separate"] }, null, 2));
   console.log("Conversation native smoke passed.");
 } catch (error) {
   try { await (await app.firstWindow()).screenshot({ path: join(out, "failure.png") }); } catch {}

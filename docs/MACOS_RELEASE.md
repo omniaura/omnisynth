@@ -199,6 +199,11 @@ model request and that a delayed older Strudel evaluation cannot stop a newer
 pattern. Both checks failed against the prior candidate and passed after
 restoring the ordinary-answer return and serializing frame transport commands.
 External perception results no longer replace the artist's editable brief.
+Stop also bypasses a pending evaluation: a three-second evaluation control
+made Stop exceed its deadline before the fix. The current native fixture
+requires a prompt stop reply, no frame reset, and stopped playback after the
+old evaluation settles. Linux icon generation preserves both committed ICNS
+files instead of replacing the selected Mac encoding.
 
 macOS run 42529595791 passed build, DMG/ZIP/icon verification, packaged UI and
 the conversation fixture, then failed only because GitHub's artifact storage

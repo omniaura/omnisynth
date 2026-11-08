@@ -24,9 +24,9 @@ window.addEventListener("message", (event) => {
   if (operation < generation) { message({ type: "reply", id, ok: false, error: "Superseded command." }); return; }
   generation = operation;
   const ticket = operation;
-  // Only one evaluate/stop body may own playback at a time. A superseded
-  // evaluation can hush its own result before the next command starts.
-  commands = commands.catch(() => {}).then(async () => {
+  // Evaluations stay serialized so stale completion can hush its own result
+  // before newer playback starts. Stop bypasses the queue to hush immediately.
+  const run = async () => {
   try {
     await initialization;
     if (ticket !== generation) throw new Error("Superseded by a newer transport command.");
@@ -48,7 +48,9 @@ window.addEventListener("message", (event) => {
     if (ticket === generation) error = failure;
     message({ type: "reply", id, ok: false, error: failure, state: ready ? state() : undefined });
   }
-  });
+  };
+  if (action === "stop") void run();
+  else commands = commands.catch(() => {}).then(run);
 });
 
 const samples = new Float32Array(1024);

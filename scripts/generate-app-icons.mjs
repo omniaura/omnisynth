@@ -12,10 +12,11 @@ try {
   execFileSync('bun', ['run', 'tauri', 'icon', source, '--output', output], { cwd: root, stdio: 'inherit' });
   // Desktop bundles use these files; keep mobile project scaffolding separate.
   for (const file of readdirSync(output)) {
-    if (/\.(png|ico|icns)$/.test(file)) cpSync(join(output, file), join(root, 'src-tauri/icons', file));
+    if (/\.(png|ico|icns)$/.test(file) && (process.platform === 'darwin' || !file.endsWith('.icns'))) cpSync(join(output, file), join(root, 'src-tauri/icons', file));
   }
   mkdirSync(join(root, 'build'), { recursive: true });
-  cpSync(join(output, 'icon.icns'), join(root, 'build/icon.icns'));
+  // Other hosts encode ICNS differently; preserve the selected Mac bytes.
+  if (process.platform === 'darwin') cpSync(join(output, 'icon.icns'), join(root, 'build/icon.icns'));
   cpSync(join(output, 'icon.png'), join(root, 'assets/branding/omnisynth-app-icon.png'));
   const mark = readFileSync(join(root, 'assets/branding/omnisynth-logo.svg'), 'utf8');
   // The white ground matches the selected original and remains visible in dark browser chrome.

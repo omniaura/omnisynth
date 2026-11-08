@@ -31,6 +31,16 @@ test("unsigned is explicit, ignores auto discovery and cannot publish", () => {
   assert.equal(packagingEnv({ PATH: "/malicious/bin" }, true).CSC_IDENTITY_AUTO_DISCOVERY, "false");
 });
 
+test("local notarization can use an existing keychain profile without a key export", () => {
+  const env = { CSC_NAME: "fixture Developer ID", APPLE_KEYCHAIN_PROFILE: "fixture-profile" };
+  const config = releaseConfig(env);
+  assert.equal(config.forceCodeSigning, true);
+  assert.equal(config.mac.notarize, true);
+  assert.throws(() => releaseConfig({ ...env, APPLE_API_KEY_ID: "ambiguous" }), /only one/);
+  assert.throws(() => releaseConfig({ ...env, APPLE_ID: "ambient@example.test" }), /ambient/);
+  assert.throws(() => releaseConfig({ APPLE_KEYCHAIN_PROFILE: "fixture-profile" }), /signing/);
+});
+
 test("OmniSynth's bundle, protocol and artifact identity cannot overwrite Ditto", () => {
   const config = releaseConfig({}, { unsigned: true });
   assert.equal(config.appId, "com.omniaura.omnisynth");

@@ -31,8 +31,12 @@ node scripts/verify-macos.mjs --unsigned
 silent unsigned fallback. It enables hardened runtime, JIT and audio-input
 entitlements, signs, and notarizes through electron-builder's v26 support.
 `CSC_NAME` can select an existing local identity instead of exporting a key;
-`CSC_LINK` is the CI certificate input. `APPLE_API_KEY` must point to a `.p8`
-file, accompanied by `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Credentials
+`CSC_LINK` is the CI certificate input. For an existing local notarytool
+keychain profile, set `APPLE_KEYCHAIN_PROFILE` (and optionally `APPLE_KEYCHAIN`).
+Alternatively, `APPLE_API_KEY` must point to a `.p8` file, accompanied by
+`APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Mixing credential modes is rejected.
+The profile name must be identified by the owner; its presence is not assumed.
+Credentials
 must stay on the trusted signing Mac or protected macOS release runner, never
 on Boat. This task does not export or upload any credential.
 
@@ -189,6 +193,18 @@ credential gate; do not copy credentials from Ditto or weaken the environment
 policy to make a release run. The installed app with a manually replaced icon
 remains an unsigned QA candidate until a complete signed artifact passes
 verification.
+
+The closeout also checks that a completed question answer makes only one
+model request and that a delayed older Strudel evaluation cannot stop a newer
+pattern. Both checks failed against the prior candidate and passed after
+restoring the ordinary-answer return and serializing frame transport commands.
+External perception results no longer replace the artist's editable brief.
+
+macOS run 42529595791 passed build, DMG/ZIP/icon verification, packaged UI and
+the conversation fixture, then failed only because GitHub's artifact storage
+quota prevented retention. That run is package-test evidence, not a retained
+download, signed/notarized artifact or release. Do not treat quota failure as
+permission to delete unrelated artifacts, buy storage or change release policy.
 
 References: [electron-builder v26 macOS options](https://www.electron.build/v26/docs/mac/),
 [Electron notarization](https://github.com/electron/notarize),

@@ -135,7 +135,10 @@ export const conversation = createRoot(() => {
   }
 
   async function context(): Promise<ChatMessage[]> {
-    const all = await recent(Infinity, 12).catch(() => []);
+    const all = await recent(Infinity, 12).catch(() => {
+      setError((current) => current || "Recent conversation history could not be loaded; continuing without it.");
+      return [];
+    });
     const groups = all.filter((turn) => turn.id !== active?.id).map((turn) => {
       const messages = completeMessages(turn.messages.map((message) => ({ ...message, content: message.role === "tool" && typeof message.content === "string" && message.content.length > 4000 ? message.content.slice(0, 4000) + "\n[Long result retained in local history.]" : message.content })));
       if (JSON.stringify(messages).length <= 30000) return messages;

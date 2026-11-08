@@ -9,6 +9,8 @@ if (process.platform !== "darwin") throw new Error("macOS artifact verification 
 const signed = !process.argv.includes("--unsigned");
 const run = (command, args) => execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 const digest = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const selectedIconSha256 = "9d94363ab870b79a8f972fcab737a2d4fa846769df058666e96109fc97ff77fc";
+assert.equal(digest("build/icon.icns"), selectedIconSha256, "Source icon differs from the owner-selected Light loom icon");
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const dmg = resolve(`release/OmniSynth-${pkg.version}-mac-arm64.dmg`);
 const zip = resolve(`release/OmniSynth-${pkg.version}-mac-arm64.zip`);
@@ -34,7 +36,7 @@ await withCleanup(async () => {
     assert.equal(plist("CFBundleURLTypes:0:CFBundleURLSchemes:0"), "omnisynth");
     const iconName = plist("CFBundleIconFile");
     const iconFile = iconName.endsWith(".icns") ? iconName : `${iconName}.icns`;
-    assert.equal(digest(join(app, "Contents/Resources", iconFile)), digest("build/icon.icns"), "Packaged app icon differs from the selected source icon");
+    assert.equal(digest(join(app, "Contents/Resources", iconFile)), selectedIconSha256, "Packaged app icon differs from the selected Light loom icon");
     for (const file of ["Contents/MacOS/OmniSynth", "Contents/Resources/app.asar",
       "Contents/Resources/licensing/LICENSE", "Contents/Resources/licensing/THIRD_PARTY_NOTICES.txt",
       "Contents/Resources/licensing/source/electron/bridge.ts", "Contents/Resources/licensing/source/bun.lock"]) {

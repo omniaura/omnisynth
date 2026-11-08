@@ -93,7 +93,7 @@ try {
   const slowResult = await rawEvaluate(slowCode);
   assert.equal(slowResult.ok, true, JSON.stringify(slowResult));
   assert.ok(Date.now() - slowStart >= 300, "Slow evaluation control did not delay");
-  const olderEvaluation = rawEvaluate(slowCode);
+  const olderEvaluation = rawEvaluate('await new Promise(resolve => setTimeout(resolve, 2000)); note("c3").s("sine").gain(0.08)');
   await page.waitForTimeout(50);
   const newerEvaluation = rawEvaluate('note("f3").s("sine").gain(0.08)');
   const [olderResult, newerResult] = await Promise.all([olderEvaluation, newerEvaluation]);

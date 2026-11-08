@@ -21,7 +21,7 @@ try {
       const current = request.messages.slice(lastUser + 1);
       const last = current.at(-1);
       const tool = (name, args) => ({ message: { role: "assistant", content: null, tool_calls: [{ id: "qa-" + globalThis.qaRequests.length, type: "function", function: { name, arguments: JSON.stringify(args) } }] } });
-      if (prompt.startsWith("Explain")) return { message: { role: "assistant", content: "Cedar stays in C minor with no reverb; the follow-up slowed it to 95 BPM." } };
+      if (prompt.startsWith("Explain")) return { message: { role: "assistant", content: " \nCedar stays in C minor with no reverb; the follow-up slowed it to 95 BPM.\n " } };
       if (prompt.startsWith("Cancel")) return new Promise((_resolve, reject) => {
         globalThis.qaCancelRelease = () => reject(new Error("The operation was aborted."));
       });
@@ -70,6 +70,10 @@ try {
   const beforeQuestionRequests = await app.evaluate(() => globalThis.qaRequests.length);
   await generate("Explain our earlier constraints without changing playback.");
   await page.getByText("Cedar stays in C minor with no reverb; the follow-up slowed it to 95 BPM.", { exact: true }).first().waitFor();
+  assert.equal(await page.getByTestId("chat-turn").nth(2).locator(".chat-message.producer").count(), 1, "Whitespace-padded answer appeared twice");
+  const questionID = await page.getByTestId("chat-turn").nth(2).getAttribute("data-turn");
+  const savedQuestion = JSON.parse(JSON.parse(await page.evaluate((id) => window.__omnisynth.tools("read_conversation_turn", { id }), questionID)).text);
+  assert.equal(savedQuestion.messages.filter((message) => message.role === "assistant").length, 1, "Whitespace-padded answer was duplicated in saved context");
   assert.equal(await app.evaluate(() => globalThis.qaRequests.length), beforeQuestionRequests + 1, "A completed question answer was requested again");
   assert.equal(JSON.parse(await tool("strudel_status")).code, beforeQuestion.code);
   await page.evaluate(() => window.__omnisynth.store.updateSettings({ skipPerceive: true }));

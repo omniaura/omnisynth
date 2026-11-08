@@ -87,6 +87,10 @@ jobs:
           name: omnisynth-failed-qa-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             release/package-qa*
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt
+            release/provenance.json
             .tmp/conversation-qa/failure.png
           if-no-files-found: ignore
           retention-days: 14

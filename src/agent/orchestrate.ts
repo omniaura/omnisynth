@@ -136,10 +136,10 @@ export async function orchestrate(opts: {
       if (res.finish_reason === "length") {
         // The response was cut off mid tool-call batch; ask for smaller batches instead of giving up.
         messages.push({ role: "user", content: "Your previous response was cut off before any tool call completed. Continue, but make at most 6 tool calls per turn and keep patterns to one or two bars." });
-        if (noToolTurns >= 3) return text.trim() || "The model kept running out of output space; try a shorter prompt or a different orchestrator model.";
+        if (noToolTurns >= 3) return text.trim() ? text : "The model kept running out of output space; try a shorter prompt or a different orchestrator model.";
         continue;
       }
-      return text.trim() || "The model returned no answer. Try sending your message again.";
+      return text.trim() ? text : "The model returned no answer. Try sending your message again.";
     }
     noToolTurns = 0;
 

@@ -15,7 +15,7 @@ export function releaseConfig(env, { unsigned = false } = {}) {
       if (apiCredentials.some((name) => env[name])) throw new Error("Choose only one notarization credential: API key or keychain profile.");
     } else {
       for (const name of apiCredentials) {
-        if (!env[name]) throw new Error(`Signed release requires ${name} or APPLE_KEYCHAIN_PROFILE.`);
+        if (!env[name]) throw new Error(`Signed release requires ${name}. Alternatively, unset all API credentials and use APPLE_KEYCHAIN_PROFILE.`);
       }
       if (!existsSync(env.APPLE_API_KEY)) throw new Error("APPLE_API_KEY must name a readable .p8 file.");
     }

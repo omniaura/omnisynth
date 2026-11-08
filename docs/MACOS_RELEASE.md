@@ -211,6 +211,14 @@ quota prevented retention. That run is package-test evidence, not a retained
 download, signed/notarized artifact or release. Do not treat quota failure as
 permission to delete unrelated artifacts, buy storage or change release policy.
 
+The later macOS run 42534302246 exposed a real first-repair regression: the
+frame kept the previous parser error after a valid evaluation cleared it.
+Its packaged UI check failed before conversation QA, and artifact retention
+also failed from quota. Restoring both error updates and error clears fixes
+the independently reproduced native control, which now requires the first
+valid replacement to succeed. The expanded native fixture passes after the
+fix; a fresh macOS package run is still required.
+
 The owner selected protected GitHub signing on November 8. Live organization
 metadata reports `omniaura` on Free. Creating `omnisynth-release` with a required
 owner reviewer, self-review prevention and disabled administrator bypass returned

@@ -85,6 +85,9 @@ try {
   assert.equal(JSON.parse(await tool("strudel_status")).error, null);
   const priorCode = JSON.parse(await tool("strudel_status")).code;
   const rawEvaluate = (code) => fetch(base + "/tools/evaluate_strudel", { method: "POST", headers, body: JSON.stringify({ code }) }).then((response) => response.json());
+  assert.equal((await rawEvaluate("stack(")).ok, false);
+  const firstRepair = await rawEvaluate(priorCode);
+  assert.equal(firstRepair.ok, true, "First valid replacement retained the previous error: " + firstRepair.error);
   const slowCode = 'await new Promise(resolve => setTimeout(resolve, 350)); note("c3").s("sine").gain(0.08)';
   const slowStart = Date.now();
   const slowResult = await rawEvaluate(slowCode);

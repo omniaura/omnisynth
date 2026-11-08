@@ -13,7 +13,7 @@ const initialization = initStrudel({
   editPattern: (pattern: Pattern) => pattern.analyze(1),
   beforeStart: () => getAudioContext().resume(),
   onToggle: (value: boolean) => { playing = value; },
-  onUpdateState: (value: { error?: Error }) => { if (value.error) error = value.error.message; },
+  onUpdateState: (value: { error?: Error }) => { error = value.error?.message ?? null; },
   onEvalError: (value: Error) => { error = value.message; },
 }).then(() => { ready = true; message({ type: "ready" }); });
 

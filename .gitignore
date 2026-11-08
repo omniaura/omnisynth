@@ -4,3 +4,4 @@ dist-electron
 release
 .tmp
 .DS_Store
+.tmp/

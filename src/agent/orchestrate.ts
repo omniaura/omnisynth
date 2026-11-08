@@ -139,7 +139,7 @@ export async function orchestrate(opts: {
         if (noToolTurns >= 3) return text.trim() ? text : "The model kept running out of output space; try a shorter prompt or a different orchestrator model.";
         continue;
       }
-      if (noToolTurns < 3) continue;
+      if (noToolTurns < 3 && !text.trim()) continue;
       return text.trim() ? text : "The model returned no answer. Try sending your message again.";
     }
     noToolTurns = 0;

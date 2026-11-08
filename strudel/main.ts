@@ -6,6 +6,7 @@ let playing = false;
 let generation = 0;
 let events = 0;
 let ready = false;
+let commands: Promise<void> = Promise.resolve();
 const message = (value: Record<string, unknown>) => parent.postMessage({ channel: "omnisynth-strudel", operation: generation, ...value }, "*");
 const state = () => ({ playing, error, events, audioContext: getAudioContext().state });
 const initialization = initStrudel({
@@ -16,21 +17,42 @@ const initialization = initStrudel({
   onEvalError: (value: Error) => { error = value.message; },
 }).then(() => { ready = true; message({ type: "ready" }); });
 
-window.addEventListener("message", async (event) => {
+let disposal: Promise<void> | undefined;
+function dispose(): Promise<void> {
+  return disposal ??= (async () => {
+    generation = Number.MAX_SAFE_INTEGER;
+    try { hush(); } catch { /* Initialization may still be pending. */ }
+    playing = false;
+    await getAudioContext().close();
+  })();
+}
+window.addEventListener("pagehide", () => void dispose().catch(() => {}));
+window.addEventListener("unload", () => void dispose().catch(() => {}));
+
+window.addEventListener("message", (event) => {
   if (event.source !== parent || event.data?.channel !== "omnisynth-strudel") return;
   const { id, action, code, operation } = event.data;
   if (!Number.isSafeInteger(id) || !Number.isSafeInteger(operation)) return;
+  if (action === "dispose") {
+    void dispose().then(() => message({ type: "disposed", id, ok: true }), () => message({ type: "disposed", id, ok: false }));
+    return;
+  }
   if (operation < generation) { message({ type: "reply", id, ok: false, error: "Superseded command." }); return; }
   generation = operation;
   const ticket = operation;
+  // Evaluations stay serialized so stale completion can hush its own result
+  // before newer playback starts. Stop bypasses the queue to hush immediately.
+  const run = async () => {
   try {
     await initialization;
+    if (ticket !== generation) throw new Error("Superseded by a newer transport command.");
     if (action === "stop") { hush(); playing = false; }
     else if (action === "evaluate") {
       if (typeof code !== "string" || !code.trim() || code.length > 32000) throw new Error("Use 1–32,000 characters of Strudel code.");
       if (ticket !== generation) throw new Error("Superseded by a newer transport command.");
       error = null;
       await getAudioContext().resume();
+      if (ticket !== generation) throw new Error("Superseded by a newer transport command.");
       const pattern = await evaluate(code, true) as Pattern | undefined;
       if (ticket !== generation) { hush(); playing = false; message({ type: "reply", id, ok: false, error: "Superseded by a newer transport command." }); return; }
       if (error || !pattern) { hush(); playing = false; throw new Error(error || "Code did not produce a Strudel pattern."); }
@@ -38,9 +60,13 @@ window.addEventListener("message", async (event) => {
     } else throw new Error("Unknown Strudel action.");
     message({ type: "reply", id, ok: true, state: state() });
   } catch (value) {
-    error = value instanceof Error ? value.message : String(value);
-    message({ type: "reply", id, ok: false, error, state: ready ? state() : undefined });
+    const failure = value instanceof Error ? value.message : String(value);
+    if (ticket === generation) error = failure;
+    message({ type: "reply", id, ok: false, error: failure, state: ready ? state() : undefined });
   }
+  };
+  if (action === "stop") void run();
+  else commands = commands.catch(() => {}).then(run);
 });
 
 const samples = new Float32Array(1024);

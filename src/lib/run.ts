@@ -102,15 +102,17 @@ export async function runGenerate(input?: { prompt: string; attachments?: import
     if (tier !== store.settings.budget) store.pushLog({ type: "status", text: `Balance ${credits?.balance?.toFixed(2)} ${credits?.currency ?? ""} — running ${tier} instead of ${store.settings.budget}` });
 
     let brief = input ? null : store.brief();
-    const wantsPerceive = !store.settings.skipPerceive && (attachments.length > 0 || !brief);
+    // Text chat goes directly to the producer, including ordinary questions.
+    // Perception interprets attachments; an existing UI brief remains optional.
+    const wantsPerceive = !store.settings.skipPerceive && attachments.length > 0;
     if (wantsPerceive) {
       store.setRunning("perceiving");
       const { provider, model } = resolveModel("perceive", tier);
       store.pushLog({ type: "status", text: `Perceiving with ${model || provider}…` });
       brief = await perceive({ provider: provider as never, model, prompt, attachments, signal: handle });
-      store.setBrief(brief);
+      if (!input) store.setBrief(brief);
       store.pushLog({ type: "assistant", text: `Brief: ${brief.title} — ${brief.bpm} BPM, ${brief.key} ${brief.scale}; ${brief.mood.slice(0, 3).join(", ")}` });
-        if (!input) store.setBrief(brief);
+      if (handle.cancelled) throw new Error("cancelled");
     }
 
     store.setRunning("orchestrating");

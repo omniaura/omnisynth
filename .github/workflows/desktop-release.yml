@@ -36,6 +36,7 @@ jobs:
           node-version: 22.23.4
       - run: bun install --frozen-lockfile
       - run: bun run test:release
+      - run: bun test scripts/conversation.test.ts
       - name: Prepare owner-configured notarization credentials
         env:
           MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
@@ -63,6 +64,17 @@ jobs:
         run: bun run dist
       - name: Verify signature, notarization, DMG/ZIP payload and packaged UI
         run: node scripts/verify-macos.mjs
+      - name: Verify continuing producer conversation (isolated model fixture)
+        run: node scripts/conversation-smoke.mjs .tmp/conversation-qa release/mac-arm64/OmniSynth.app/Contents/MacOS/OmniSynth
+      - name: Stage only conversation evidence for retention
+        if: always()
+        run: |
+          mkdir -p release
+          for file in conversation.png proof.json failure.png; do
+            if [ -f ".tmp/conversation-qa/$file" ]; then
+              cp ".tmp/conversation-qa/$file" "release/producer-$file"
+            fi
+          done
       - name: Retain private signed artifacts and evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -73,6 +85,7 @@ jobs:
             release/SHA256SUMS.txt
             release/provenance.json
             release/package-qa*
+            release/producer-*
           if-no-files-found: error
           retention-days: 14
       - name: Retain failed package QA diagnostics
@@ -80,7 +93,13 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: omnisynth-failed-qa-${{ github.sha }}-${{ github.run_attempt }}
-          path: release/package-qa*
+          path: |
+            release/package-qa*
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt
+            release/provenance.json
+            release/producer-*
           if-no-files-found: ignore
           retention-days: 14
       - name: Remove temporary notarization key

@@ -33,7 +33,16 @@ jobs:
       - name: Verify DMG, ZIP and packaged UI
         run: node scripts/verify-macos.mjs --unsigned
       - name: Verify continuing producer conversation (isolated model fixture)
-        run: node scripts/conversation-smoke.mjs .tmp/conversation-qa
+        run: node scripts/conversation-smoke.mjs .tmp/conversation-qa release/mac-arm64/OmniSynth.app/Contents/MacOS/OmniSynth
+      - name: Stage only conversation evidence for retention
+        if: always()
+        run: |
+          mkdir -p release
+          for file in conversation.png proof.json failure.png; do
+            if [ -f ".tmp/conversation-qa/$file" ]; then
+              cp ".tmp/conversation-qa/$file" "release/producer-$file"
+            fi
+          done
       - name: Retain private QA evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -45,7 +54,6 @@ jobs:
             release/SHA256SUMS.txt
             release/provenance.json
             release/package-qa*
-            .tmp/conversation-qa/conversation.png
-            .tmp/conversation-qa/proof.json
+            release/producer-*
           retention-days: 14
           if-no-files-found: error

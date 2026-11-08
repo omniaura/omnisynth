@@ -31,8 +31,12 @@ node scripts/verify-macos.mjs --unsigned
 silent unsigned fallback. It enables hardened runtime, JIT and audio-input
 entitlements, signs, and notarizes through electron-builder's v26 support.
 `CSC_NAME` can select an existing local identity instead of exporting a key;
-`CSC_LINK` is the CI certificate input. `APPLE_API_KEY` must point to a `.p8`
-file, accompanied by `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Credentials
+`CSC_LINK` is the CI certificate input. For an existing local notarytool
+keychain profile, set `APPLE_KEYCHAIN_PROFILE` (and optionally `APPLE_KEYCHAIN`).
+Alternatively, `APPLE_API_KEY` must point to a `.p8` file, accompanied by
+`APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Mixing credential modes is rejected.
+The profile name must be identified by the owner; its presence is not assumed.
+Credentials
 must stay on the trusted signing Mac or protected macOS release runner, never
 on Boat. This task does not export or upload any credential.
 
@@ -154,7 +158,7 @@ this Apple silicon candidate.
 
 The owner selected AGPL-3.0-only for the full Electron app on 2026-11-04.
 The root LICENSE and package metadata now agree. Hydra is retained; the
-current DAW uses Tone.js, with a Strudel surface planned separately.
+current DAW uses Tone.js and includes a separate Strudel live-code surface.
 The original MIDI Gen MIT notice is retained in `third-party/`.
 Packaging includes this checkout's application source, installed production
 dependency source, dependency inventory and license notices under
@@ -165,6 +169,79 @@ The independent Bevy experiment retains its own MIT license.
 AGPL selection does not publish the private repository, configure signing
 secrets, notarize a package or activate an updater. Validate matching source,
 dependency notices and any additional asset terms before public distribution.
+
+## Release closeout (2026-11-08)
+
+The full Electron candidate now integrates the selected Light loom icon from
+main commit `c1f420863b14f423bb4b02ea91f739b83239f6c5`. Artifact verification
+compares the icon in the built app, DMG and ZIP to `build/icon.icns`, and records
+its SHA-256 in provenance. The selected icon hash is
+`9d94363ab870b79a8f972fcab737a2d4fa846769df058666e96109fc97ff77fc`.
+Both unsigned and signed workflows exercise the continuing-conversation fixture.
+
+The November 4 package failure came from a later bridge review suggestion that
+used a tool result before its declaration and removed the local-history guard.
+The closeout restores the guard and records completed external calls only while
+the Producer is idle. Solid is pinned to 1.9.18, carrying the reviewed
+serialization dependency correction into the full Electron candidate.
+
+Read-only preflight on November 8 found a valid local Omni Aura Developer ID
+identity, but no repository/organization signing secrets or release environment
+in `omniaura/omnisynth`. These observations do not prove private-key use,
+notarization, or a signed release. The owner setup above remains the precise
+credential gate; do not copy credentials from Ditto or weaken the environment
+policy to make a release run. The installed app with a manually replaced icon
+remains an unsigned QA candidate until a complete signed artifact passes
+verification.
+
+The closeout also checks that a completed question answer makes only one
+model request and that a delayed older Strudel evaluation cannot stop a newer
+pattern. Both checks failed against the prior candidate and passed after
+restoring the ordinary-answer return and serializing frame transport commands.
+External perception results no longer replace the artist's editable brief.
+Stop also bypasses a pending evaluation: a three-second evaluation control
+made Stop exceed its deadline before the fix. The current native fixture
+requires a prompt stop reply, no frame reset, and stopped playback after the
+old evaluation settles. Linux icon generation preserves both committed ICNS
+files instead of replacing the selected Mac encoding.
+
+macOS run 42529595791 passed build, DMG/ZIP/icon verification, packaged UI and
+the conversation fixture, then failed only because GitHub's artifact storage
+quota prevented retention. That run is package-test evidence, not a retained
+download, signed/notarized artifact or release. Do not treat quota failure as
+permission to delete unrelated artifacts, buy storage or change release policy.
+
+The later macOS run 42534302246 exposed a real first-repair regression: the
+frame kept the previous parser error after a valid evaluation cleared it.
+Its packaged UI check failed before conversation QA, and artifact retention
+also failed from quota. Restoring both error updates and error clears fixes
+the independently reproduced native control, which now requires the first
+valid replacement to succeed. The expanded native fixture passes after the
+fix; a fresh macOS package run is still required.
+
+Timeout teardown now sends a terminal disposal command before detaching the
+old frame. That command invalidates its queued work, hushes and closes its
+AudioContext, then acknowledges completion. A one-second removal fallback
+bounds an unresponsive frame. The native test observes the real close promise
+and `closed` context state; it failed on plain frame removal and passes with
+the handshake, followed by successful recovery in a fresh frame. This proves
+engine teardown, not physical speaker output.
+
+Both Mac workflows now pass the built OmniSynth executable to the conversation
+fixture. It verifies packaged identity and the launched executable path.
+Checkout-mode native QA remains available on Boat; it is not packaged proof.
+
+The owner selected protected GitHub signing on November 8. Live organization
+metadata reports `omniaura` on Free. Creating `omnisynth-release` with a required
+owner reviewer, self-review prevention and disabled administrator bypass returned
+HTTP 422 because the billing plan does not support required reviewers. GitHub
+left an empty unprotected environment despite the error; its secret list was
+empty, and that newly created environment was removed. No signing secret was
+uploaded. GitHub's [environment availability documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
+requires Enterprise for required-reviewer protection in a private repository;
+Team alone does not provide that rule. Owner-managed Enterprise access and
+artifact retention remain blockers. Do not silently replace this with an
+unprotected environment or repository secrets.
 
 References: [electron-builder v26 macOS options](https://www.electron.build/v26/docs/mac/),
 [Electron notarization](https://github.com/electron/notarize),

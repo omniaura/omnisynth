@@ -9,10 +9,16 @@ export function releaseConfig(env, { unsigned = false } = {}) {
     config.dmg = { sign: false };
   } else {
     if (!(env.CSC_LINK || env.CSC_NAME)) throw new Error("Developer ID signing requires CSC_LINK or CSC_NAME.");
-    for (const name of ["APPLE_API_KEY", "APPLE_API_KEY_ID", "APPLE_API_ISSUER"]) {
-      if (!env[name]) throw new Error(`Signed release requires ${name}.`);
+    const apiCredentials = ["APPLE_API_KEY", "APPLE_API_KEY_ID", "APPLE_API_ISSUER"];
+    if (env.APPLE_ID || env.APPLE_APP_SPECIFIC_PASSWORD) throw new Error("Unset ambient Apple ID credentials; choose an explicit API key or keychain profile.");
+    if (env.APPLE_KEYCHAIN_PROFILE) {
+      if (apiCredentials.some((name) => env[name])) throw new Error("Choose only one notarization credential: API key or keychain profile.");
+    } else {
+      for (const name of apiCredentials) {
+        if (!env[name]) throw new Error(`Signed release requires ${name}. Alternatively, unset all API credentials and use APPLE_KEYCHAIN_PROFILE.`);
+      }
+      if (!existsSync(env.APPLE_API_KEY)) throw new Error("APPLE_API_KEY must name a readable .p8 file.");
     }
-    if (!existsSync(env.APPLE_API_KEY)) throw new Error("APPLE_API_KEY must name a readable .p8 file.");
     config.forceCodeSigning = true;
     config.mac.notarize = true;
     if (env.CSC_NAME) config.mac.identity = env.CSC_NAME;

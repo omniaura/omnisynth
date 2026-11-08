@@ -14,7 +14,8 @@
     "dist:unsigned": "bun run build && node scripts/package-macos.mjs --unsigned",
     "dist:dir": "bun run build && node scripts/package-macos.mjs --unsigned --dir",
     "test:release": "node --test scripts/release-config.test.mjs scripts/with-cleanup.test.mjs scripts/prepare-source.test.mjs",
-    "test:package": "node scripts/package-smoke.mjs"
+    "test:package": "node scripts/package-smoke.mjs",
+    "icons": "node scripts/generate-app-icons.mjs"
   },
   "license": "AGPL-3.0-only",
   "dependencies": {
@@ -25,11 +26,12 @@
     "@codemirror/view": "^6.39.5",
     "@strudel/web": "1.3.0",
     "hydra-synth": "^1.4.0",
-    "solid-js": "^1.9.10",
+    "solid-js": "1.9.18",
     "tone": "^15.1.22",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "2.9.6",
     "@types/node": "^22.19.0",
     "electron": "^39.0.0",
     "electron-builder": "^26.0.12",

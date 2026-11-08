@@ -73,14 +73,36 @@ async function initialize(): Promise<void> {
   catch (error) { removeListener(); frame?.remove(); frame = null; ready = null; throw error; }
 }
 
+function resetFrame(ownedFrame: HTMLIFrameElement | null, operation: number, reason: Error): void {
+  if (!ownedFrame || frame !== ownedFrame || revision !== operation) return;
+  for (const call of pending.values()) {
+    clearTimeout(call.timer);
+    call.reject(reason);
+  }
+  pending.clear();
+  removeListener();
+  ownedFrame.remove();
+  frame = null;
+  ready = null;
+  setStatus((state) => ({ ...state, playing: false, rms: 0, bands: [0, 0, 0, 0] }));
+}
+
 async function request(action: "evaluate" | "stop", source?: string, operation = revision): Promise<unknown> {
   await initialize();
   if (operation !== revision) throw new Error("Superseded by a newer transport command.");
   const id = ++nextID;
+  const ownedFrame = frame!;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error("Strudel command timed out.")); }, action === "stop" ? 2000 : 15000);
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      const error = new Error("Strudel command timed out.");
+      // Destroy the current frame's pending queue as well as its audio context.
+      // A timed-out older request must not reset a newer operation's frame.
+      resetFrame(ownedFrame, operation, error);
+      reject(error);
+    }, action === "stop" ? 2000 : 15000);
     pending.set(id, { operation, resolve, reject, timer });
-    frame!.contentWindow!.postMessage({ channel: "omnisynth-strudel", id, operation, action, code: source }, origin);
+    ownedFrame.contentWindow!.postMessage({ channel: "omnisynth-strudel", id, operation, action, code: source }, origin);
   });
 }
 
@@ -95,17 +117,7 @@ export async function stopStrudel(): Promise<void> {
   if (frame) {
     try { await request("stop", undefined, ticket); }
     catch {
-      if (revision === ticket && frame === ownedFrame) {
-        for (const call of pending.values()) {
-          clearTimeout(call.timer);
-          call.reject(new Error("Strudel frame was reset."));
-        }
-        pending.clear();
-        removeListener();
-        frame?.remove();
-        frame = null;
-        ready = null;
-      }
+      resetFrame(ownedFrame, ticket, new Error("Strudel frame was reset."));
     }
   }
   if (revision === ticket) setStatus((state) => ({ ...state, playing: false, rms: 0, bands: [0, 0, 0, 0] }));

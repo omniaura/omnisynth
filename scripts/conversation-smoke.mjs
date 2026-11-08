@@ -22,7 +22,9 @@ try {
       const last = current.at(-1);
       const tool = (name, args) => ({ message: { role: "assistant", content: null, tool_calls: [{ id: "qa-" + globalThis.qaRequests.length, type: "function", function: { name, arguments: JSON.stringify(args) } }] } });
       if (prompt.startsWith("Explain")) return { message: { role: "assistant", content: "Cedar stays in C minor with no reverb; the follow-up slowed it to 95 BPM." } };
-      if (prompt.startsWith("Cancel")) { await new Promise((resolve) => setTimeout(resolve, 600)); throw new Error("The operation was aborted."); }
+      if (prompt.startsWith("Cancel")) return new Promise((_resolve, reject) => {
+        globalThis.qaCancelRelease = () => reject(new Error("The operation was aborted."));
+      });
       if (prompt.startsWith("External") && (!last || last.role !== "tool")) return tool("read_conversation_turn", { id: "private-id" });
       if (last?.name === "read_conversation_turn") return tool("done", { summary: "External job cannot read private conversation." });
       if (!last || last.role !== "tool") return tool("evaluate_strudel", { code: prompt.startsWith("Recover") ? "stack(" : `setcpm(${prompt.startsWith("Make") ? 95 : 110}/4); stack(s("sbd*4").gain(0.3), note("c3 eb3 g3 bb3").s("sine").gain(0.1))` });
@@ -102,10 +104,25 @@ try {
   assert.match(stoppedResult.error, /[Ss]uperseded/, "Stop reset the frame instead of interrupting playback");
   await page.waitForTimeout(150);
   assert.equal(JSON.parse(await tool("strudel_status")).playing, false, "An evaluation restarted playback after Stop");
+  const timedOutOlder = rawEvaluate('await new Promise(resolve => setTimeout(resolve, 17000)); note("c3").s("sine").gain(0.08)');
+  await page.waitForTimeout(100);
+  const timedOutNewer = rawEvaluate('note("f3").s("sine").gain(0.08)');
+  const timedOutResults = await Promise.all([timedOutOlder, timedOutNewer]);
+  assert.ok(timedOutResults.every((result) => !result.ok && /timed out/.test(result.error)), JSON.stringify(timedOutResults));
+  await page.waitForTimeout(2500);
+  assert.equal(JSON.parse(await tool("strudel_status")).playing, false, "A queued evaluation played after its request timed out");
   await tool("evaluate_strudel", { code: priorCode });
   const cancelled = generate("Cancel this queued edit.");
   await page.getByTestId("cancel").waitFor();
+  await app.evaluate(async () => {
+    const deadline = Date.now() + 5000;
+    while (!globalThis.qaCancelRelease) {
+      if (Date.now() > deadline) throw new Error("Cancel fixture did not reach inference.");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  });
   await page.getByTestId("cancel").click();
+  await app.evaluate(() => globalThis.qaCancelRelease());
   await cancelled;
   assert.equal(await page.getByTestId("chat-turn").count(), 6);
   await page.getByText("Stopped. Send another message to continue.").waitFor();

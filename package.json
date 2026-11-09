@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "icons": "node scripts/generate-app-icons.mjs"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-javascript": "^6.2.4",

@@ -8,11 +8,24 @@ Live coding audio-visual studio: [Strudel](https://strudel.cc/) for sound, [Hydr
 
 Logo assets and source: [branding](assets/branding/README.md).
 
-## Tracking
+## Status
 
-Work is tracked in Jira project **SYNTH**: https://omniaura-team.atlassian.net/jira/software/projects/SYNTH/boards/37
+This default branch contains the original Tauri prototype. The full Electron
+application, including Tone.js, Hydra, Strudel and Producer chat, is being
+prepared in [the release pull request](https://github.com/omniaura/omnisynth/pull/13).
+The separate [Bevy experiment](bevy-slice/) explores a smaller native slice.
 
-Current plan: rename from `aurajam` (SYNTH-1), move the desktop shell from Tauri to Electron (SYNTH-2), get the app running end to end (SYNTH-3).
+## License
+
+OmniSynth application source is licensed under [GNU AGPL version 3 only](LICENSE).
+Third-party projects retain their own licenses, including Strudel and Hydra;
+this repository's license does not replace their upstream terms.
+The independent Bevy experiment remains [MIT licensed](bevy-slice/LICENSE).
+Earlier revisions retain the licenses granted with those revisions.
+
+Public source availability does not mean a signed desktop release is ready.
+Binary packaging, signing, notarization and release verification are tracked
+separately in the release pull request.
 
 ## Development
 

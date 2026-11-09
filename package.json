@@ -22,7 +22,7 @@
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-opener": "^2.5.2",
     "hydra-synth": "^1.4.0",
-    "solid-js": "^1.9.10"
+    "solid-js": "1.9.18"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
